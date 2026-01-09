@@ -2,6 +2,8 @@
 
 A VS Code extension to manage workspace-specific to-do lists directly in your editor. Organize tasks, track progress, and associate files with your todos.
 
+![Workspace To-do's](./screenshot.png)
+
 ## Features
 
 - **Workspace-Specific**: Todos are stored per workspace in `.vscode/todos.json`

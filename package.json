@@ -1,0 +1,170 @@
+{
+  "name": "workspace-todos",
+  "displayName": "Workspace To-do's",
+  "description": "A VSCode extension to manage Workspace To-Do's",
+  "version": "1.0.0",
+  "publisher": "tarikkavaz",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "todos",
+    "workspace",
+    "tasks",
+    "todo list",
+    "todo management"
+  ],
+  "activationEvents": [
+    "onView:workspaceTodosView",
+    "onCommand:workspaceTodos.addTodo",
+    "onCommand:workspaceTodos.refresh",
+    "onCommand:workspaceTodos.editTodo",
+    "onCommand:workspaceTodos.toggleTodo",
+    "onCommand:workspaceTodos.deleteTodo",
+    "onCommand:workspaceTodos.addFileToTodo",
+    "onCommand:workspaceTodos.createTodoWithFile",
+    "onCommand:workspaceTodos.addTextToTodo",
+    "onCommand:workspaceTodos.createTodoWithText"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "workspace-todos",
+          "title": "Workspace To-do's",
+          "icon": "media/task-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "workspace-todos": [
+        {
+          "id": "workspaceTodosView",
+          "name": "To-do's",
+          "icon": "media/task-icon.svg",
+          "when": "true"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "workspaceTodos.addTodo",
+        "title": "Add To-Do",
+        "icon": "$(add)"
+      },
+      {
+        "command": "workspaceTodos.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "workspaceTodos.editTodo",
+        "title": "Edit",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "workspaceTodos.toggleTodo",
+        "title": "Toggle Complete",
+        "icon": "$(check)"
+      },
+      {
+        "command": "workspaceTodos.deleteTodo",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "workspaceTodos.addFileToTodo",
+        "title": "Add File to To-Do - Existing",
+        "icon": "$(add)"
+      },
+      {
+        "command": "workspaceTodos.createTodoWithFile",
+        "title": "Add File to To-Do - Create new",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "workspaceTodos.addTextToTodo",
+        "title": "Add Text to To-Do - Existing",
+        "icon": "$(add)"
+      },
+      {
+        "command": "workspaceTodos.createTodoWithText",
+        "title": "Add Text to To-Do - Create new",
+        "icon": "$(file-add)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "workspaceTodos.addTodo",
+          "when": "view == workspaceTodosView",
+          "group": "navigation"
+        },
+        {
+          "command": "workspaceTodos.refresh",
+          "when": "view == workspaceTodosView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "workspaceTodos.editTodo",
+          "when": "view == workspaceTodosView && viewItem == todo",
+          "group": "inline@1"
+        },
+        {
+          "command": "workspaceTodos.toggleTodo",
+          "when": "view == workspaceTodosView && viewItem == todo",
+          "group": "inline@2"
+        },
+        {
+          "command": "workspaceTodos.deleteTodo",
+          "when": "view == workspaceTodosView && viewItem == todo",
+          "group": "inline@3"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "workspaceTodos.addFileToTodo"
+        },
+        {
+          "command": "workspaceTodos.createTodoWithFile"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "workspaceTodos.addTextToTodo",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "workspaceTodos.createTodoWithText",
+          "when": "editorHasSelection"
+        }
+      ]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tarikkavaz/workspace-todos.git"
+  },
+  "homepage": "https://github.com/tarikkavaz/workspace-todos",
+  "bugs": {
+    "url": "https://github.com/tarikkavaz/workspace-todos/issues"
+  },
+  "license": "MIT",
+  "icon": "icon.png",
+  "dependencies": {
+    "monaco-editor": "^0.45.0"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^2.22.0",
+    "@types/vscode": "^1.60.0"
+  },
+  "scripts": {
+		"package": "vsce package --no-dependencies"
+	}
+}

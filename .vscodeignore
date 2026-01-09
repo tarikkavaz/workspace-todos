@@ -1,0 +1,12 @@
+.vscode/**
+.cursor/**
+.gitignore
+.tool-versions
+pnpm-lock.yaml
+*.vsix
+.vscode-test/**
+node_modules/**
+*.code-workspace
+**/*.map
+**/*.ts
+!**/*.js.map

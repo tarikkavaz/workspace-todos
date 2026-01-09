@@ -1,0 +1,48 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/**/*.js"
+      ]
+    },
+    {
+      "name": "Run Extension (with folder)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "${input:workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/**/*.js"
+      ]
+    },
+    {
+      "name": "Extension Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--extensionTestsPath=${workspaceFolder}/test/suite/index"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/**/*.js"
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "workspaceFolder",
+      "type": "promptString",
+      "description": "Enter the absolute path to the folder to open in the Extension Development Host",
+      "default": "${workspaceFolder}"
+    }
+  ]
+}

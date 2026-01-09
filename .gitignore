@@ -3,3 +3,4 @@ _tools
 *.vsix
 .DS_Store
 .cursor/
+.vscode/todos.json

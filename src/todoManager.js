@@ -45,7 +45,6 @@ function loadTodos() {
         const content = fs.readFileSync(filePath, 'utf8');
         return JSON.parse(content);
     } catch (error) {
-        console.error('Error loading todos:', error);
         return { todos: [], error: error.message };
     }
 }
@@ -60,7 +59,6 @@ function saveTodos(data) {
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
         return true;
     } catch (error) {
-        console.error('Error saving todos:', error);
         throw error;
     }
 }

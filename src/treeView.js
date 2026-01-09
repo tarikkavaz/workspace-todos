@@ -65,8 +65,7 @@ class TodosTreeDataProvider {
             
             return [];
         } catch (error) {
-            this._outputChannel.appendLine('Error loading todos: ' + error.message);
-                return [new TodoTreeItem('Error loading To-Dos', null, true)];
+            return [new TodoTreeItem('Error loading To-Dos', null, true)];
         }
     }
 }

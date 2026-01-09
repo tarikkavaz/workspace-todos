@@ -35,7 +35,6 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                             createTodoWebviewPanel(context, item.todo, refreshTree);
                             return;
                         }
-                        globalOutputChannel.appendLine('EditTodo - No todo ID found. Item keys: ' + (item ? Object.keys(item).join(', ') : 'null'));
                         vscode.window.showErrorMessage('Invalid To-Do item selected');
                         return;
                     }
@@ -46,15 +45,12 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                     const todo = todos.find(t => t.id === todoId);
                     
                     if (!todo) {
-                        globalOutputChannel.appendLine('EditTodo - To-Do not found with ID: ' + todoId);
                         vscode.window.showErrorMessage('To-Do not found');
                         return;
                     }
                     
                     createTodoWebviewPanel(context, todo, refreshTree);
                 } catch (error) {
-                    globalOutputChannel.appendLine('Error in editTodo: ' + error.message);
-                    globalOutputChannel.appendLine('Stack: ' + error.stack);
                     vscode.window.showErrorMessage(`Error opening editor: ${error.message}`);
                 }
             }),
@@ -126,13 +122,10 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                 }
             }),
             vscode.commands.registerCommand('workspaceTodos.addFileToTodo', async (uri, uris) => {
-                globalOutputChannel.appendLine('✓ Command workspaceTodos.addFileToTodo registered');
                 try {
-                    globalOutputChannel.appendLine('addFileToTodo called with uri: ' + (uri ? uri.toString() : 'null'));
                     // Handle both single URI and array of URIs (when multiple files selected)
                     const targetUri = uris && uris.length > 0 ? uris[0] : uri;
                     if (!targetUri) {
-                        globalOutputChannel.appendLine('No URI provided to addFileToTodo');
                         vscode.window.showErrorMessage('No file selected');
                         return;
                     }
@@ -193,13 +186,10 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                 }
             }),
             vscode.commands.registerCommand('workspaceTodos.createTodoWithFile', async (uri, uris) => {
-                globalOutputChannel.appendLine('✓ Command workspaceTodos.createTodoWithFile registered');
                 try {
-                    globalOutputChannel.appendLine('createTodoWithFile called with uri: ' + (uri ? uri.toString() : 'null'));
                     // Handle both single URI and array of URIs (when multiple files selected)
                     const targetUri = uris && uris.length > 0 ? uris[0] : uri;
                     if (!targetUri) {
-                        globalOutputChannel.appendLine('No URI provided to createTodoWithFile');
                         vscode.window.showErrorMessage('No file selected');
                         return;
                     }
@@ -339,7 +329,6 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
             })
         );
     } catch (cmdError) {
-        globalOutputChannel.appendLine('✗ Error registering commands: ' + cmdError.message);
         // If command already exists, try to continue anyway
         if (!cmdError.message.includes('already exists')) {
             throw cmdError;

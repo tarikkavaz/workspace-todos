@@ -232,7 +232,7 @@ Todos are stored in `.vscode/todos.json` in your workspace root. This file is cr
 **Solutions**:
 - This is a fallback behavior - the extension will still work with the textarea
 - Try reloading the VS Code window (`Ctrl+R` / `Cmd+R`)
-- Check that `node_modules/monaco-editor` exists (run `npm install` if needed)
+- Check that `node_modules/monaco-editor` exists (run `pnpm install` if needed)
 
 ### Context Menu Items Not Appearing
 
@@ -288,7 +288,7 @@ Contributions are welcome! Here's how you can help:
 ### Development Setup
 
 1. Clone the repository
-2. Install dependencies: `npm install`
+2. Install dependencies: `pnpm install`
 3. Open the folder in VS Code
 4. Press `F5` to open a new Extension Development Host window
 5. Make changes and test in the development window

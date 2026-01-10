@@ -23,7 +23,7 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
             retainContextWhenHidden: false,
             localResourceRoots: [
                 vscode.Uri.joinPath(context.extensionUri, 'media'),
-                vscode.Uri.joinPath(context.extensionUri, 'node_modules')
+                vscode.Uri.joinPath(context.extensionUri, 'lib')
             ]
         }
     );
@@ -284,10 +284,10 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
     
     // Get Monaco editor URIs
     const monacoLoaderUri = webview.asWebviewUri(
-        vscode.Uri.joinPath(extensionUri, 'node_modules', 'monaco-editor', 'min', 'vs', 'loader.js')
+        vscode.Uri.joinPath(extensionUri, 'lib', 'monaco-editor', 'min', 'vs', 'loader.js')
     );
     const monacoBaseUri = webview.asWebviewUri(
-        vscode.Uri.joinPath(extensionUri, 'node_modules', 'monaco-editor', 'min', 'vs')
+        vscode.Uri.joinPath(extensionUri, 'lib', 'monaco-editor', 'min', 'vs')
     );
     
     return `<!DOCTYPE html>

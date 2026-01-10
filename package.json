@@ -191,6 +191,9 @@
     "@types/vscode": "^1.60.0"
   },
   "scripts": {
+		"copy-monaco": "node scripts/copy-monaco.js",
+		"postinstall": "pnpm run copy-monaco",
+		"prepackage": "pnpm run copy-monaco",
 		"package": "vsce package --no-dependencies"
 	}
 }

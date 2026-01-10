@@ -283,7 +283,10 @@ function exportTodosToMarkdown() {
                 
                 // Add related files if present
                 if (todo.files && todo.files.length > 0) {
-                    markdown += `  *Files: ${todo.files.join(', ')}*\n`;
+                    markdown += `  *Related Files*:\n`;
+                    todo.files.forEach(file => {
+                        markdown += `  ${file}\n`;
+                    });
                 }
                 
                 markdown += '\n';
@@ -311,7 +314,10 @@ function exportTodosToMarkdown() {
                 
                 // Add related files if present
                 if (todo.files && todo.files.length > 0) {
-                    markdown += `  *Files: ${todo.files.join(', ')}*\n`;
+                    markdown += `  *Related Files*:\n`;
+                    todo.files.forEach(file => {
+                        markdown += `  ${file}\n`;
+                    });
                 }
                 
                 markdown += '\n';

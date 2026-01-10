@@ -463,6 +463,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         }
         h1 {
             margin-bottom: 20px;
+            font-size: 16px;
         }
         .editor-header {
             display: flex;

@@ -33,8 +33,6 @@ function activate(context) {
         
         // Register all commands
         registerCommands(context, refreshTree, globalOutputChannel);
-        
-        vscode.window.showInformationMessage('Workspace Todos extension activated!');
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to register Workspace Todos view: ${error.message}`);
         isActivated = false; // Reset on error

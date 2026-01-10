@@ -250,7 +250,7 @@ function exportTodosToMarkdown() {
 
         // Get export path
         const exportDir = getMarkdownExportDirectory();
-        const markdownFilePath = path.join(workspaceFolder.uri.fsPath, exportDir, 'todo.md');
+        const markdownFilePath = path.join(workspaceFolder.uri.fsPath, exportDir, 'todos.md');
 
         // Generate markdown content
         let markdown = '# To-Do List\n\n';
@@ -323,7 +323,7 @@ function exportTodosToMarkdown() {
 
         return {
             success: true,
-            path: path.join(exportDir, 'todo.md'),
+            path: path.join(exportDir, 'todos.md'),
             totalTodos: todos.length,
             completed: completedTodos.length,
             uncompleted: uncompletedTodos.length

@@ -97,6 +97,16 @@
         "icon": "$(file-add)"
       }
     ],
+    "configuration": {
+      "title": "Workspace To-do's",
+      "properties": {
+        "workspaceTodos.todosDirectory": {
+          "type": "string",
+          "default": ".vscode",
+          "description": "Directory path (relative to workspace root) where todos.json file will be saved. Default is '.vscode'."
+        }
+      }
+    },
     "menus": {
       "view/title": [
         {

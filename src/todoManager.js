@@ -2,7 +2,19 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 
-const TODOS_FILE = '.vscode/todos.json';
+/**
+ * Get the configured todos directory path, defaulting to '.vscode'
+ */
+function getTodosDirectory() {
+    const config = vscode.workspace.getConfiguration('workspaceTodos');
+    let directory = config.get('todosDirectory', '.vscode');
+    if (!directory || directory.trim() === '') {
+        directory = '.vscode';
+    }
+    // Normalize the path - remove leading/trailing slashes but preserve internal path structure
+    directory = directory.trim().replace(/^[\/\\]+|[\/\\]+$/g, '').replace(/\\/g, '/');
+    return directory || '.vscode';
+}
 
 /**
  * Get the path to the todos.json file
@@ -12,20 +24,23 @@ function getTodosFilePath() {
     if (!workspaceFolder) {
         throw new Error('No workspace folder found');
     }
-    return path.join(workspaceFolder.uri.fsPath, TODOS_FILE);
+    const todosDir = getTodosDirectory();
+    const todosFilePath = path.join(todosDir, 'todos.json');
+    return path.join(workspaceFolder.uri.fsPath, todosFilePath);
 }
 
 /**
- * Ensure the .vscode directory exists
+ * Ensure the todos directory exists
  */
-function ensureVscodeDir() {
+function ensureTodosDirectory() {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
         throw new Error('No workspace folder found');
     }
-    const vscodeDir = path.join(workspaceFolder.uri.fsPath, '.vscode');
-    if (!fs.existsSync(vscodeDir)) {
-        fs.mkdirSync(vscodeDir, { recursive: true });
+    const todosDir = getTodosDirectory();
+    const fullPath = path.join(workspaceFolder.uri.fsPath, todosDir);
+    if (!fs.existsSync(fullPath)) {
+        fs.mkdirSync(fullPath, { recursive: true });
     }
 }
 
@@ -54,7 +69,7 @@ function loadTodos() {
  */
 function saveTodos(data) {
     try {
-        ensureVscodeDir();
+        ensureTodosDirectory();
         const filePath = getTodosFilePath();
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
         return true;

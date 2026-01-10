@@ -326,6 +326,18 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                 } catch (error) {
                     vscode.window.showErrorMessage(`Error creating To-Do: ${error.message}`);
                 }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.exportToMarkdown', async () => {
+                try {
+                    const result = todoManager.exportTodosToMarkdown();
+                    if (result.success) {
+                        vscode.window.showInformationMessage(
+                            `Exported ${result.totalTodos} To-Do's to ${result.path}`
+                        );
+                    }
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Error exporting To-Do's: ${error.message}`);
+                }
             })
         );
     } catch (cmdError) {

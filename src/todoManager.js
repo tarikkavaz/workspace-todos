@@ -197,6 +197,155 @@ function getWorkspaceFiles() {
     return files.sort();
 }
 
+/**
+ * Get the configured markdown export directory path, defaulting to '.vscode'
+ */
+function getMarkdownExportDirectory() {
+    const config = vscode.workspace.getConfiguration('workspaceTodos');
+    let directory = config.get('markdownExportPath', '.vscode');
+    if (!directory || directory.trim() === '') {
+        directory = '.vscode';
+    }
+    // Normalize the path - remove leading/trailing slashes but preserve internal path structure
+    directory = directory.trim().replace(/^[\/\\]+|[\/\\]+$/g, '').replace(/\\/g, '/');
+    return directory || '.vscode';
+}
+
+/**
+ * Ensure the markdown export directory exists
+ */
+function ensureMarkdownExportDirectory() {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        throw new Error('No workspace folder found');
+    }
+    const exportDir = getMarkdownExportDirectory();
+    const fullPath = path.join(workspaceFolder.uri.fsPath, exportDir);
+    if (!fs.existsSync(fullPath)) {
+        fs.mkdirSync(fullPath, { recursive: true });
+    }
+}
+
+/**
+ * Export all todos to markdown format
+ * Format: - [ ] for uncompleted, - [x] for completed
+ */
+function exportTodosToMarkdown() {
+    try {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            throw new Error('No workspace folder found');
+        }
+
+        // Ensure export directory exists
+        ensureMarkdownExportDirectory();
+
+        // Load all todos
+        const todosData = loadTodos();
+        const todos = todosData.todos || [];
+
+        if (!todos || todos.length === 0) {
+            throw new Error('No todos found to export');
+        }
+
+        // Get export path
+        const exportDir = getMarkdownExportDirectory();
+        const markdownFilePath = path.join(workspaceFolder.uri.fsPath, exportDir, 'todo.md');
+
+        // Generate markdown content
+        let markdown = '# To-Do List\n\n';
+        markdown += `*Generated on ${new Date().toLocaleString()}*\n\n`;
+
+        // Separate completed and uncompleted todos
+        const uncompletedTodos = todos.filter(t => !t.completed);
+        const completedTodos = todos.filter(t => t.completed);
+
+        // Add uncompleted todos section
+        if (uncompletedTodos.length > 0) {
+            markdown += '## Active Tasks\n\n';
+            uncompletedTodos.forEach(todo => {
+                markdown += `- [ ] ${escapeMarkdown(todo.title || todo.notes || 'Untitled')}\n`;
+                
+                // Add notes if present and different from title
+                if (todo.notes && todo.notes.trim() && todo.title && todo.notes !== todo.title) {
+                    markdown += `  ${todo.notes.split('\n').join('\n  ')}\n`;
+                } else if (todo.notes && todo.notes.trim() && !todo.title) {
+                    // If no title, the notes are already in the checkbox line
+                }
+                
+                // Add subtasks if present
+                if (todo.subtasks && todo.subtasks.length > 0) {
+                    todo.subtasks.forEach(subtask => {
+                        const subtaskStatus = subtask.completed ? 'x' : ' ';
+                        markdown += `  - [${subtaskStatus}] ${escapeMarkdown(subtask.text || 'Untitled subtask')}\n`;
+                    });
+                }
+                
+                // Add related files if present
+                if (todo.files && todo.files.length > 0) {
+                    markdown += `  *Files: ${todo.files.join(', ')}*\n`;
+                }
+                
+                markdown += '\n';
+            });
+        }
+
+        // Add completed todos section
+        if (completedTodos.length > 0) {
+            markdown += '## Completed Tasks\n\n';
+            completedTodos.forEach(todo => {
+                markdown += `- [x] ${escapeMarkdown(todo.title || todo.notes || 'Untitled')}\n`;
+                
+                // Add notes if present and different from title
+                if (todo.notes && todo.notes.trim() && todo.title && todo.notes !== todo.title) {
+                    markdown += `  ${todo.notes.split('\n').join('\n  ')}\n`;
+                }
+                
+                // Add subtasks if present
+                if (todo.subtasks && todo.subtasks.length > 0) {
+                    todo.subtasks.forEach(subtask => {
+                        const subtaskStatus = subtask.completed ? 'x' : ' ';
+                        markdown += `  - [${subtaskStatus}] ${escapeMarkdown(subtask.text || 'Untitled subtask')}\n`;
+                    });
+                }
+                
+                // Add related files if present
+                if (todo.files && todo.files.length > 0) {
+                    markdown += `  *Files: ${todo.files.join(', ')}*\n`;
+                }
+                
+                markdown += '\n';
+            });
+        }
+
+        // Write to file
+        fs.writeFileSync(markdownFilePath, markdown, 'utf8');
+
+        return {
+            success: true,
+            path: path.join(exportDir, 'todo.md'),
+            totalTodos: todos.length,
+            completed: completedTodos.length,
+            uncompleted: uncompletedTodos.length
+        };
+    } catch (error) {
+        throw error;
+    }
+}
+
+/**
+ * Escape markdown special characters for checkbox line (only escape what breaks the format)
+ * This is used only for the title in checkbox format: - [ ] title
+ */
+function escapeMarkdown(text) {
+    if (!text) return '';
+    // For checkbox line, replace newlines with spaces and escape brackets that would break the format
+    return text
+        .replace(/\n/g, ' ') // Replace newlines with spaces for single line display
+        .replace(/\[/g, '\\[') // Escape opening bracket to prevent breaking checkbox format
+        .replace(/\]/g, '\\]'); // Escape closing bracket to prevent breaking checkbox format
+}
+
 module.exports = {
     loadTodos,
     saveTodos,
@@ -204,5 +353,6 @@ module.exports = {
     updateTodo,
     deleteTodo,
     toggleComplete,
-    getWorkspaceFiles
+    getWorkspaceFiles,
+    exportTodosToMarkdown
 };

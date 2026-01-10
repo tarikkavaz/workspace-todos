@@ -27,7 +27,8 @@
     "onCommand:workspaceTodos.addFileToTodo",
     "onCommand:workspaceTodos.createTodoWithFile",
     "onCommand:workspaceTodos.addTextToTodo",
-    "onCommand:workspaceTodos.createTodoWithText"
+    "onCommand:workspaceTodos.createTodoWithText",
+    "onCommand:workspaceTodos.exportToMarkdown"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -95,6 +96,11 @@
         "command": "workspaceTodos.createTodoWithText",
         "title": "Add Text to To-Do - Create new",
         "icon": "$(file-add)"
+      },
+      {
+        "command": "workspaceTodos.exportToMarkdown",
+        "title": "Export To Markdown",
+        "icon": "$(save-as)"
       }
     ],
     "configuration": {
@@ -104,6 +110,11 @@
           "type": "string",
           "default": ".vscode",
           "description": "Directory path (relative to workspace root) where todos.json file will be saved. Default is '.vscode'."
+        },
+        "workspaceTodos.markdownExportPath": {
+          "type": "string",
+          "default": ".vscode",
+          "description": "Directory path (relative to workspace root) where todo.md file will be exported. Default is '.vscode'. The directory will be created if it doesn't exist."
         }
       }
     },
@@ -111,6 +122,11 @@
       "view/title": [
         {
           "command": "workspaceTodos.addTodo",
+          "when": "view == workspaceTodosView",
+          "group": "navigation"
+        },
+        {
+          "command": "workspaceTodos.exportToMarkdown",
           "when": "view == workspaceTodosView",
           "group": "navigation"
         },

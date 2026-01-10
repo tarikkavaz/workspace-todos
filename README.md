@@ -27,6 +27,7 @@ A VS Code extension to manage workspace-specific to-do lists directly in your ed
   - [Subtasks](#subtasks)
   - [Context Menu Actions](#context-menu-actions)
 - [Commands](#commands)
+- [Configuration](#configuration)
 - [Data Storage](#data-storage)
 - [Requirements](#requirements)
 - [Troubleshooting](#troubleshooting)
@@ -162,11 +163,74 @@ All commands are available via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+
 - `Workspace To-do's: Add Text to To-Do - Existing` - Add text to existing todo (Editor context)
 - `Workspace To-do's: Add Text to To-Do - Create new` - Create todo with text (Editor context)
 
+## Configuration
+
+You can customize where the extension stores `todos.json` and exports `todos.md` by configuring these settings in your VS Code `settings.json`:
+
+### `workspaceTodos.todosDirectory`
+
+Directory path (relative to workspace root) where `todos.json` file will be saved.
+
+**Default:** `.vscode`
+
+**Example:**
+```json
+{
+  "workspaceTodos.todosDirectory": ".vscode"
+}
+```
+
+Or to store todos in a different location:
+```json
+{
+  "workspaceTodos.todosDirectory": "docs"
+}
+```
+
+This will save `todos.json` to `docs/todos.json` instead of `.vscode/todos.json`.
+
+### `workspaceTodos.markdownExportPath`
+
+Directory path (relative to workspace root) where `todos.md` file will be exported when using the "Export To Markdown" command.
+
+**Default:** `.vscode`
+
+**Example:**
+```json
+{
+  "workspaceTodos.markdownExportPath": ".vscode"
+}
+```
+
+Or to export to a different location:
+```json
+{
+  "workspaceTodos.markdownExportPath": "exports"
+}
+```
+
+This will save `todos.md` to `exports/todos.md` instead of `.vscode/todos.md`. The directory will be created automatically if it doesn't exist.
+
+### How to Configure
+
+1. Open VS Code Settings:
+   - Press `Ctrl+,` (Windows/Linux) or `Cmd+,` (macOS), or
+   - Go to `File` → `Preferences` → `Settings` (Windows/Linux) or `Code` → `Preferences` → `Settings` (macOS)
+
+2. Search for "Workspace To-do's" in the settings search bar
+
+3. Or edit `settings.json` directly:
+   - Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+   - Select "Preferences: Open User Settings (JSON)" or "Preferences: Open Workspace Settings (JSON)"
+   - Add the configuration options as shown above
+
 ## Data Storage
 
-Todos are stored in `.vscode/todos.json` in your workspace root. This file is created automatically when you create your first todo.
+Todos are stored in `todos.json` in your workspace. By default, this file is located at `.vscode/todos.json` in your workspace root. You can customize this location using the [`workspaceTodos.todosDirectory`](#configuration) setting.
 
-**File Location:** `.vscode/todos.json`
+**Default File Location:** `.vscode/todos.json`
+
+The file is created automatically when you create your first todo.
 
 **File Format:**
 ```json
@@ -189,7 +253,7 @@ Todos are stored in `.vscode/todos.json` in your workspace root. This file is cr
 }
 ```
 
-**Note:** The `.vscode` folder is typically excluded from version control, so your todos remain local to your workspace. If you want to share todos with your team, you can commit `.vscode/todos.json` to your repository.
+**Note:** The default `.vscode` folder is typically excluded from version control, so your todos remain local to your workspace. If you want to share todos with your team, you can commit the `todos.json` file to your repository. You can also configure a custom location using the [`workspaceTodos.todosDirectory`](#configuration) setting if you prefer a different location.
 
 ## Requirements
 

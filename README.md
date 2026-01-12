@@ -13,6 +13,9 @@ A VS Code extension to manage workspace-specific to-do lists directly in your ed
 - **Subtasks**: Break down todos into smaller subtasks with completion tracking
 - **Context Menu Integration**: Add files or selected text to todos from Explorer and Editor
 - **Quick Actions**: Toggle completion, edit, and delete todos directly from the sidebar
+- **Smart Completion Toggle**: Mark todos as complete or uncomplete from the editor with dynamic button text
+- **Auto-Save**: Automatic saving of changes to prevent data loss when switching tabs or files
+- **Keyboard Shortcuts**: Configurable keyboard shortcuts for save, mark complete, delete, and create new todo
 - **Organized View**: Todos are grouped into "Active" and "Completed" sections
 
 ## Table of Contents
@@ -26,6 +29,7 @@ A VS Code extension to manage workspace-specific to-do lists directly in your ed
   - [Managing Files](#managing-files)
   - [Subtasks](#subtasks)
   - [Context Menu Actions](#context-menu-actions)
+  - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Commands](#commands)
 - [Configuration](#configuration)
 - [Data Storage](#data-storage)
@@ -109,7 +113,31 @@ In the editor panel:
 
 - Click on any todo in the sidebar to open it in the editor
 - Or right-click a todo and select "Edit"
-- Make your changes and click "Save"
+- Make your changes - they will be automatically saved (see [Auto-Save](#auto-save) below)
+- You can also click "Save" for immediate manual save
+
+**Marking Todos as Complete/Uncomplete:**
+- When editing a todo, use the "Mark as Complete" button in the editor header
+- The button text automatically changes to "Mark as Uncompleted" for completed todos
+- Clicking the button toggles the completion status without closing the editor
+- The button text and success message update immediately to reflect the new status
+
+### Auto-Save
+
+The extension automatically saves your changes to prevent data loss:
+
+- **Debounced Auto-Save**: Changes are automatically saved 500ms after you stop typing
+- **Periodic Saves**: Your work is saved every 5 seconds while editing
+- **Save on Tab Switch**: Changes are immediately saved when you switch to another file or tab
+- **Visual Feedback**: The editor header shows "Saving..." and "Saved" indicators
+- **Manual Save**: The "Save" button is still available for explicit control and immediate feedback
+
+**Benefits:**
+- Never lose your work when switching between files
+- No need to manually save after every change
+- Seamless editing experience with automatic persistence
+
+**Note:** The manual "Save" button provides immediate feedback with a notification, while auto-save is silent with only the visual indicator.
 
 ### Managing Files
 
@@ -148,6 +176,55 @@ When adding text, the extension automatically:
 - Includes the file path and line number
 - Formats the text in a code block
 - Adds the file to the todo's associated files
+
+### Keyboard Shortcuts
+
+The extension provides keyboard shortcuts for quick access to common actions. All shortcuts are customizable through VS Code's Keyboard Shortcuts UI (`Ctrl+K Ctrl+S` / `Cmd+K Cmd+S`).
+
+#### When To-Do Editor is Open
+
+These shortcuts only work when a To-Do is open in the editor:
+
+- **`Ctrl+S`** / **`Cmd+S`**: Save the current To-Do
+  - Saves all changes (title, notes, files, subtasks)
+  - Works for both new and existing todos
+
+- **`Ctrl+Enter`** / **`Cmd+Enter`**: Mark To-Do as Complete/Uncompleted
+  - Toggles the completion status of the current todo
+  - Button text and success message update automatically
+  - Editor remains open after toggling
+
+- **`Ctrl+Delete`** / **`Cmd+Delete`**: Delete the current To-Do
+  - Shows a confirmation dialog before deleting
+  - Closes the editor after deletion
+
+#### Global Shortcuts
+
+These shortcuts work from anywhere in VS Code:
+
+- **`Ctrl+Alt+N`** / **`Control+Cmd+N`**: Create a new To-Do
+  - Opens the To-Do editor with a blank form
+  - Works from the sidebar, editor, or any view
+
+#### Customizing Shortcuts
+
+To customize or change any keyboard shortcut:
+
+1. Open Keyboard Shortcuts UI:
+   - Press `Ctrl+K Ctrl+S` (Windows/Linux) or `Cmd+K Cmd+S` (Mac)
+   - Or go to `File` → `Preferences` → `Keyboard Shortcuts`
+
+2. Search for "Workspace To-do's" or the specific command name
+
+3. Click on the shortcut you want to change and press your desired key combination
+
+4. To remove a shortcut, right-click and select "Remove Keybinding"
+
+**Available Commands for Customization:**
+- `Workspace To-do's: Save To-Do` - Save action in editor
+- `Workspace To-do's: Mark To-Do as Complete` - Toggle completion in editor
+- `Workspace To-do's: Delete To-Do` - Delete action in editor
+- `Workspace To-do's: Add To-Do` - Create new todo (global)
 
 ## Commands
 

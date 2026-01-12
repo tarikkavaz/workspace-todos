@@ -3,6 +3,23 @@ const path = require('path');
 const todoManager = require('./todoManager');
 const { escapeHtml } = require('./utils');
 
+// Panel registry to track active webview panels
+const activePanels = new Set();
+
+/**
+ * Get the currently active webview panel
+ * @returns {vscode.WebviewPanel|undefined} The active panel or undefined
+ */
+function getActivePanel() {
+    // Find the first visible panel
+    for (const panel of activePanels) {
+        if (panel && panel.visible) {
+            return panel;
+        }
+    }
+    return undefined;
+}
+
 function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = [], initialText = '') {
     // Use a mutable reference to the current todo so we can update it after creation
     let currentTodo = todo;
@@ -20,7 +37,7 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
         vscode.ViewColumn.One,
         {
             enableScripts: true,
-            retainContextWhenHidden: false,
+            retainContextWhenHidden: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(context.extensionUri, 'media'),
                 vscode.Uri.joinPath(context.extensionUri, 'lib')
@@ -28,7 +45,59 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
         }
     );
 
+    // Register panel in active panels set
+    activePanels.add(panel);
+
+    // Remove panel from registry when disposed
+    panel.onDidDispose(() => {
+        activePanels.delete(panel);
+    });
+
     panel.webview.html = getTodoEditorWebviewContent(panel.webview, context.extensionUri, currentTodo, initialFiles, initialText);
+
+    // Track pending state save to handle async response
+    let pendingStateSave = null;
+
+    // Handle view state changes to refresh content when panel becomes visible
+    // and save immediately when panel becomes hidden
+    panel.onDidChangeViewState(
+        e => {
+            // When panel becomes hidden, request current state and save immediately
+            if (!e.webviewPanel.visible && currentTodo && currentTodo.id) {
+                // Request current state from webview - it will respond with 'currentState' message
+                panel.webview.postMessage({
+                    command: 'getCurrentState'
+                });
+                // Set a flag to save when we receive the state
+                pendingStateSave = currentTodo.id;
+            }
+            // When panel becomes visible and we're editing an existing todo, reload latest data
+            else if (e.webviewPanel.visible && currentTodo && currentTodo.id) {
+                try {
+                    // Reload the todo from storage to get the latest saved state
+                    const todosData = todoManager.loadTodos();
+                    const todos = todosData.todos || [];
+                    const reloadedTodo = todos.find(t => t.id === currentTodo.id);
+                    
+                    if (reloadedTodo) {
+                        // Update the current todo reference with latest data
+                        currentTodo = reloadedTodo;
+                        
+                        // Update panel title if it changed
+                        const newTitle = reloadedTodo.title || reloadedTodo.notes || 'Untitled';
+                        panel.title = newTitle.length > 30 ? newTitle.substring(0, 30) + '...' : newTitle;
+                        
+                        // Refresh webview HTML with latest todo data
+                        panel.webview.html = getTodoEditorWebviewContent(panel.webview, context.extensionUri, reloadedTodo, [], '');
+                    }
+                } catch (error) {
+                    console.error('[WorkspaceTodos] Error reloading todo on view state change:', error);
+                }
+            }
+        },
+        null,
+        context.subscriptions
+    );
 
     // Handle messages from webview
     panel.webview.onDidReceiveMessage(
@@ -115,6 +184,28 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
                         });
                     }
                     break;
+                case 'currentState':
+                    // Handle current state response when panel is being hidden
+                    if (pendingStateSave && message.id === pendingStateSave && currentTodo) {
+                        try {
+                            // Save the current state immediately
+                            const updatedTodo = todoManager.updateTodo(currentTodo.id, {
+                                title: message.title || '',
+                                notes: message.notes || '',
+                                files: message.files || [],
+                                subtasks: message.subtasks || []
+                            });
+                            currentTodo = updatedTodo;
+                            if (onSaveCallback) {
+                                onSaveCallback();
+                            }
+                            pendingStateSave = null;
+                        } catch (error) {
+                            console.error('[WorkspaceTodos] Error saving state on panel hide:', error);
+                            pendingStateSave = null;
+                        }
+                    }
+                    break;
                 case 'addFile':
                     {
                         try {
@@ -170,11 +261,17 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
                     {
                         try {
                             const updatedTodo = todoManager.toggleComplete(message.id);
+                            // Update the current todo reference with the updated data
+                            currentTodo = updatedTodo;
                             if (onSaveCallback) {
                                 onSaveCallback();
                             }
-                            vscode.window.showInformationMessage('To-Do marked as complete');
-                            panel.dispose();
+                            const messageText = updatedTodo.completed 
+                                ? 'To-Do marked as complete' 
+                                : 'To-Do marked as uncompleted';
+                            vscode.window.showInformationMessage(messageText);
+                            // Refresh webview HTML with updated todo data to show correct button text
+                            panel.webview.html = getTodoEditorWebviewContent(panel.webview, context.extensionUri, updatedTodo, [], '');
                         } catch (error) {
                             vscode.window.showErrorMessage(`Error marking To-Do as complete: ${error.message}`);
                         }
@@ -193,12 +290,18 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
                             }
                             const updatedTodo = todoManager.toggleComplete(message.id);
                             console.log('[WorkspaceTodos Extension] Todo toggled, new status:', updatedTodo ? updatedTodo.completed : 'null');
+                            // Update the current todo reference with the updated data
+                            currentTodo = updatedTodo;
                             if (onSaveCallback) {
                                 console.log('[WorkspaceTodos Extension] Calling onSaveCallback (refreshTree)');
                                 onSaveCallback();
                             }
-                            vscode.window.showInformationMessage('To-Do marked as complete');
-                            panel.dispose();
+                            const messageText = updatedTodo.completed 
+                                ? 'To-Do marked as complete' 
+                                : 'To-Do marked as uncompleted';
+                            vscode.window.showInformationMessage(messageText);
+                            // Refresh webview HTML with updated todo data to show correct button text
+                            panel.webview.html = getTodoEditorWebviewContent(panel.webview, context.extensionUri, updatedTodo, [], '');
                         } catch (error) {
                             console.error('[WorkspaceTodos Extension] Error marking To-Do as complete:', error);
                             console.error('[WorkspaceTodos Extension] Error stack:', error.stack);
@@ -593,7 +696,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         <div class="editor-header-right">
             ${todo ? '<span class="auto-save-indicator" id="autoSaveIndicator"></span>' : ''}
             <div class="editor-header-left">
-                ${todo ? '<button type="button" class="btn btn-success" id="markCompleteBtn">Mark as Complete</button>' : ''}
+                ${todo ? `<button type="button" class="btn btn-success" id="markCompleteBtn">${todo.completed ? 'Mark as Uncompleted' : 'Mark as Complete'}</button>` : ''}
                 <button type="button" class="btn btn-primary" id="saveBtn">Save</button>
             </div>
         </div>
@@ -662,6 +765,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         const isEditMode = ${todo && todo.id ? 'true' : 'false'};
         const todoId = ${todo && todo.id ? JSON.stringify(todo.id) : null};
         const todoTitle = ${todo ? JSON.stringify(todo.title || todo.notes || 'Untitled') : null};
+        const todoCompleted = ${todo ? (todo.completed ? 'true' : 'false') : 'false'};
         
         // Auto-save state tracking
         let hasChanges = false;
@@ -669,8 +773,8 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         let lastSavedState = null;
         let debounceTimer = null;
         let periodicSaveInterval = null;
-        const DEBOUNCE_DELAY = 2000; // 2 seconds
-        const PERIODIC_SAVE_INTERVAL = 10000; // 10 seconds
+        const DEBOUNCE_DELAY = 500; // 500ms - reduced for faster saves
+        const PERIODIC_SAVE_INTERVAL = 5000; // 5 seconds - reduced for more frequent saves
         
         // Initialize last saved state
         if (isEditMode && todoId) {
@@ -1334,7 +1438,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             }
         }
         
-        // Listen for auto-save completion
+        // Listen for auto-save completion and save-before-hidden requests
         window.addEventListener('message', event => {
             const message = event.data;
             if (message.command === 'autoSaveComplete') {
@@ -1347,6 +1451,39 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                 } else {
                     updateSaveIndicator('error');
                 }
+            } else if (message.command === 'getCurrentState') {
+                // Extension is requesting current state (usually when panel is being hidden)
+                // Respond immediately with current state
+                if (isEditMode && todoId) {
+                    const currentState = getCurrentState();
+                    vscode.postMessage({
+                        command: 'currentState',
+                        id: todoId,
+                        title: currentState.title,
+                        notes: currentState.notes,
+                        files: currentState.files,
+                        subtasks: currentState.subtasks
+                    });
+                }
+            } else if (message.command === 'triggerSave') {
+                // Trigger save from keyboard shortcut
+                handleSave();
+            } else if (message.command === 'triggerMarkComplete') {
+                // Trigger mark complete from keyboard shortcut
+                if (isEditMode && todoId) {
+                    vscode.postMessage({
+                        command: 'requestMarkComplete',
+                        id: todoId
+                    });
+                }
+            } else if (message.command === 'triggerDelete') {
+                // Trigger delete from keyboard shortcut
+                if (isEditMode && todoId) {
+                    vscode.postMessage({
+                        command: 'requestDelete',
+                        id: todoId
+                    });
+                }
             }
         });
         
@@ -1354,6 +1491,19 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         if (isEditMode && todoId) {
             startPeriodicSave();
         }
+        
+        // Save immediately when page becomes hidden (backup mechanism)
+        // This uses the Page Visibility API to detect when the webview is hidden
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isEditMode && todoId && hasStateChanged()) {
+                // Clear debounce timer and save immediately
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = null;
+                }
+                performAutoSave();
+            }
+        });
         
         function handleSave() {
             // Stop auto-save timers on manual save
@@ -1452,5 +1602,6 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
 
 module.exports = {
     createTodoWebviewPanel,
-    getTodoEditorWebviewContent
+    getTodoEditorWebviewContent,
+    getActivePanel
 };

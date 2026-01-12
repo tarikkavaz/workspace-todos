@@ -2,7 +2,7 @@
   "name": "workspace-todos",
   "displayName": "Workspace To-do's",
   "description": "A VSCode extension to manage Workspace To-Do's",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "tarikkavaz",
   "engines": {
     "vscode": "^1.60.0"
@@ -101,6 +101,21 @@
         "command": "workspaceTodos.exportToMarkdown",
         "title": "Export To Markdown",
         "icon": "$(save-as)"
+      },
+      {
+        "command": "workspaceTodos.saveTodoFromEditor",
+        "title": "Save To-Do",
+        "icon": "$(save)"
+      },
+      {
+        "command": "workspaceTodos.markCompleteFromEditor",
+        "title": "Mark To-Do as Complete",
+        "icon": "$(check)"
+      },
+      {
+        "command": "workspaceTodos.deleteTodoFromEditor",
+        "title": "Delete To-Do",
+        "icon": "$(trash)"
       }
     ],
     "configuration": {
@@ -171,7 +186,32 @@
           "when": "editorHasSelection"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "workspaceTodos.saveTodoFromEditor",
+        "key": "ctrl+s",
+        "mac": "cmd+s",
+        "when": "activeWebviewPanelId == 'workspaceTodoEditor'"
+      },
+      {
+        "command": "workspaceTodos.markCompleteFromEditor",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "activeWebviewPanelId == 'workspaceTodoEditor'"
+      },
+      {
+        "command": "workspaceTodos.deleteTodoFromEditor",
+        "key": "ctrl+delete",
+        "mac": "cmd+delete",
+        "when": "activeWebviewPanelId == 'workspaceTodoEditor'"
+      },
+      {
+        "command": "workspaceTodos.addTodo",
+        "key": "ctrl+alt+n",
+        "mac": "ctrl+cmd+n"
+      }
+    ]
   },
   "repository": {
     "type": "git",

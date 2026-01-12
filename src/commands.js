@@ -1,7 +1,7 @@
 const vscode = require('vscode');
 const todoManager = require('./todoManager');
 const { getRelativeFilePath } = require('./utils');
-const { createTodoWebviewPanel } = require('./todoEditor');
+const { createTodoWebviewPanel, getActivePanel } = require('./todoEditor');
 
 /**
  * Register all extension commands
@@ -337,6 +337,24 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                     }
                 } catch (error) {
                     vscode.window.showErrorMessage(`Error exporting To-Do's: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.saveTodoFromEditor', () => {
+                const activePanel = getActivePanel();
+                if (activePanel) {
+                    activePanel.webview.postMessage({ command: 'triggerSave' });
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.markCompleteFromEditor', () => {
+                const activePanel = getActivePanel();
+                if (activePanel) {
+                    activePanel.webview.postMessage({ command: 'triggerMarkComplete' });
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.deleteTodoFromEditor', () => {
+                const activePanel = getActivePanel();
+                if (activePanel) {
+                    activePanel.webview.postMessage({ command: 'triggerDelete' });
                 }
             })
         );

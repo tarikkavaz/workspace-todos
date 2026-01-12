@@ -2,12 +2,15 @@
 
 A VS Code extension to manage workspace-specific to-do lists directly in your editor. Organize tasks, track progress, and associate files with your todos.
 
-![Workspace To-do's](./screenshot.png)
 
 ## Features
 
 - **Workspace-Specific**: Todos are stored per workspace in `.vscode/todos.json`
-- **Sidebar View**: Access your todos from the activity bar sidebar
+- **Split Sidebar View**: Resizable sidebar with separate sections for active and completed todos
+- **Label System**: Comprehensive labeling with categories (Priority, Type, Status, Quality, Scope)
+  - Custom categories and label values
+  - Radio button selection (one value per category)
+- **Filter System**: Filter todos by labels in both active and completed sections
 - **Rich Editor**: Monaco editor with Markdown support for detailed notes
 - **File Associations**: Link files from your workspace to todos
 - **Subtasks**: Break down todos into smaller subtasks with completion tracking
@@ -16,7 +19,19 @@ A VS Code extension to manage workspace-specific to-do lists directly in your ed
 - **Smart Completion Toggle**: Mark todos as complete or uncomplete from the editor with dynamic button text
 - **Auto-Save**: Automatic saving of changes to prevent data loss when switching tabs or files
 - **Keyboard Shortcuts**: Configurable keyboard shortcuts for save, mark complete, delete, and create new todo
-- **Organized View**: Todos are grouped into "Active" and "Completed" sections
+- **Editor Persistence**: Open todo editors automatically restore when workspace is reopened
+- **Smart Editor Focus**: Clicking a todo in sidebar focuses existing editor instead of creating duplicate
+
+
+### Edit a To-Do
+
+![Workspace To-do's](./screenshot01.png)
+
+
+### Add text via Context Menu to a To-Do
+
+![Workspace To-do's](./screenshot02.png)
+
 
 ## Table of Contents
 
@@ -26,6 +41,7 @@ A VS Code extension to manage workspace-specific to-do lists directly in your ed
   - [Sidebar View](#sidebar-view)
   - [Creating Todos](#creating-todos)
   - [Editing Todos](#editing-todos)
+  - [Labels](#labels)
   - [Managing Files](#managing-files)
   - [Subtasks](#subtasks)
   - [Context Menu Actions](#context-menu-actions)
@@ -87,15 +103,25 @@ Your todos are automatically saved to `.vscode/todos.json` in your workspace.
 
 ### Sidebar View
 
-The extension adds a new view to the activity bar sidebar. Click the "Workspace To-do's" icon to see:
+The extension adds a new view to the activity bar sidebar with two resizable sections. Click the "Workspace To-do's" icon to see:
 
-- **Active To-do's**: Todos that are not yet completed
-- **Completed To-do's**: Todos that have been marked as complete
+#### To-do's Section (Top)
+- **Filter Labels**: Filter todos by selecting labels from the filter panel
+- **Status-Grouped Sections**: Active todos organized by status labels
+  - "In Progress" appears first
+  - Other status sections (Backlog, Planned, Review, etc.)
+  - "No Status" section for todos without status labels
+- Each todo shows:
+  - Title (or first line of notes if no title)
+  - Checkmark icon for completed todos, circle for active
+  - Number of associated files (if any)
 
-Each todo shows:
-- Title (or first line of notes if no title)
-- Completion status
-- Number of associated files (if any)
+#### Completed Section (Bottom)
+- All completed/done todos in a separate resizable section
+- Independent filter system
+- Checkmark icon to mark todos as uncompleted
+
+You can resize the sections by dragging the divider between them.
 
 ### Creating Todos
 
@@ -105,22 +131,29 @@ Each todo shows:
 In the editor panel:
 - Enter a **Title** (required)
 - Add **Notes** using the Markdown editor (optional)
+- Select **Labels** from categories (Priority, Type, Status, Quality, Scope)
+  - Only one value per category (radio button selection)
+  - Status category appears first for quick access
+  - Custom categories can be added via settings
 - Add **Subtasks** by typing and clicking "Add" (optional)
 - Associate **Files** by clicking "+ Add File" (optional)
 - Click **Save** to create the todo
 
 ### Editing Todos
 
-- Click on any todo in the sidebar to open it in the editor
+- Click on any todo in the sidebar to open it in the editor (focuses existing editor if already open)
 - Or right-click a todo and select "Edit"
 - Make your changes - they will be automatically saved (see [Auto-Save](#auto-save) below)
 - You can also click "Save" for immediate manual save
+- The sidebar automatically refreshes when you change labels
 
 **Marking Todos as Complete/Uncomplete:**
 - When editing a todo, use the "Mark as Complete" button in the editor header
 - The button text automatically changes to "Mark as Uncompleted" for completed todos
 - Clicking the button toggles the completion status without closing the editor
 - The button text and success message update immediately to reflect the new status
+- Completing a todo automatically adds "status:done" label
+- Uncompleting a todo removes all status labels
 
 ### Auto-Save
 
@@ -161,6 +194,33 @@ Break down your todos into smaller, trackable subtasks:
 2. Click "Add" or press Enter
 3. Check off subtasks as you complete them
 4. Remove subtasks by clicking the `×` button
+
+### Labels
+
+The extension supports a comprehensive label system for organizing your todos:
+
+**Default Categories:**
+- **Priority**: blocker, critical, high, medium, low, trivial
+- **Type**: bug, feature, enhancement, refactor, documentation, test
+- **Quality/Concern Area**: performance, security, accessibility, usability, maintainability
+- **Status**: backlog, planned, in-progress, review, blocked, done
+- **Scope**: frontend, backend, api, infra, ci, docs
+
+**Features:**
+- **One per Category**: Radio button selection ensures only one value per category
+- **Custom Categories**: Add your own categories through settings
+- **Hide Options**: Hide default categories or specific labels you don't use
+- **Filtering**: Filter todos by labels in both active and completed sections
+
+**Selecting Labels:**
+1. In the todo editor, click "Select labels..." dropdown
+2. Categories are grouped together
+3. Status category appears first for quick access
+4. Click a radio button to select (replaces previous selection in that category)
+5. Selected labels appear as badges below the dropdown
+
+**Configuration:**
+See [Configuration](#configuration) section for label settings.
 
 ### Context Menu Actions
 
@@ -233,8 +293,11 @@ All commands are available via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+
 - `Workspace To-do's: Add To-Do` - Create a new todo
 - `Workspace To-do's: Refresh` - Refresh the sidebar view
 - `Workspace To-do's: Edit` - Edit the selected todo (context menu)
-- `Workspace To-do's: Toggle Complete` - Mark todo as complete/incomplete (context menu)
+- `Workspace To-do's: Toggle Complete` - Mark todo as complete/incomplete (context menu - active section)
+- `Workspace To-do's: Mark as Uncompleted` - Mark completed todo as incomplete (context menu - completed section)
 - `Workspace To-do's: Delete` - Delete the selected todo (context menu)
+- `Workspace To-do's: Toggle Filter Label` - Toggle a label filter on/off (context menu on filter labels)
+- `Workspace To-do's: Clear Filters` - Clear all active label filters (context menu on filter section)
 - `Workspace To-do's: Add File to To-Do - Existing` - Add file to existing todo (Explorer context)
 - `Workspace To-do's: Add File to To-Do - Create new` - Create todo with file (Explorer context)
 - `Workspace To-do's: Add Text to To-Do - Existing` - Add text to existing todo (Editor context)
@@ -288,6 +351,57 @@ Or to export to a different location:
 
 This will save `todos.md` to `exports/todos.md` instead of `.vscode/todos.md`. The directory will be created automatically if it doesn't exist.
 
+### `workspaceTodos.labels`
+
+Comprehensive label system configuration for organizing todos with categories and values.
+
+**Structure:**
+```json
+{
+  "workspaceTodos.labels": {
+    "categories": {
+      "priority": {
+        "values": ["blocker", "critical", "high", "medium", "low", "trivial"]
+      },
+      "status": {
+        "values": ["backlog", "planned", "in-progress", "review", "blocked", "done"]
+      }
+    },
+    "hiddenCategories": [],
+    "hiddenLabels": [],
+    "custom": {
+      "team": {
+        "values": ["frontend-team", "backend-team", "devops"]
+      }
+    }
+  }
+}
+```
+
+**Properties:**
+- `categories`: Default category definitions with values
+- `hiddenCategories`: Array of category names to hide from UI (e.g., `["scope"]`)
+- `hiddenLabels`: Array of specific labels to hide (format: `"category:value"`, e.g., `["priority:trivial"]`)
+- `custom`: Custom category definitions (same structure as categories)
+
+**Example - Hide a Category:**
+```json
+{
+  "workspaceTodos.labels": {
+    "hiddenCategories": ["scope"]
+  }
+}
+```
+
+**Example - Hide Specific Labels:**
+```json
+{
+  "workspaceTodos.labels": {
+    "hiddenLabels": ["priority:trivial", "type:test"]
+  }
+}
+```
+
 ### How to Configure
 
 1. Open VS Code Settings:
@@ -318,13 +432,16 @@ The file is created automatically when you create your first todo.
       "title": "Todo title",
       "notes": "Markdown notes",
       "completed": false,
+      "labels": ["priority:high", "type:bug", "status:in-progress"],
       "files": ["relative/path/to/file.js"],
       "subtasks": [
         {
           "text": "Subtask description",
           "completed": false
         }
-      ]
+      ],
+      "createdAt": "2026-01-13T10:00:00.000Z",
+      "updatedAt": "2026-01-13T10:00:00.000Z"
     }
   ]
 }

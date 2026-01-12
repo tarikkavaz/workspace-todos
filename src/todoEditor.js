@@ -1,10 +1,12 @@
 const vscode = require('vscode');
 const path = require('path');
 const todoManager = require('./todoManager');
-const { escapeHtml } = require('./utils');
+const { escapeHtml, getAvailableLabels, loadLabelConfig } = require('./utils');
 
 // Panel registry to track active webview panels
 const activePanels = new Set();
+// Map to track todo ID to panel for quick lookup
+const todoIdToPanel = new Map();
 
 /**
  * Get the currently active webview panel
@@ -16,6 +18,25 @@ function getActivePanel() {
         if (panel && panel.visible) {
             return panel;
         }
+    }
+    return undefined;
+}
+
+/**
+ * Get panel for a specific todo ID
+ * @param {string} todoId - The todo ID
+ * @returns {vscode.WebviewPanel|undefined} The panel for this todo or undefined
+ */
+function getPanelForTodo(todoId) {
+    if (!todoId) return undefined;
+    const panel = todoIdToPanel.get(todoId);
+    // Verify panel still exists and is not disposed
+    if (panel && activePanels.has(panel)) {
+        return panel;
+    }
+    // Clean up stale entry
+    if (panel) {
+        todoIdToPanel.delete(todoId);
     }
     return undefined;
 }
@@ -44,14 +65,46 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
             ]
         }
     );
+    
+    // Set icon with checkmark - use light/dark versions for theme adaptation
+    panel.iconPath = {
+        light: vscode.Uri.file(
+            path.join(context.extensionPath, 'media', 'complete-icon-light.svg')
+        ),
+        dark: vscode.Uri.file(
+            path.join(context.extensionPath, 'media', 'complete-icon-dark.svg')
+        )
+    };
 
     // Register panel in active panels set
     activePanels.add(panel);
+    
+    // Track panel by todo ID if this is an existing todo
+    if (currentTodo && currentTodo.id) {
+        todoIdToPanel.set(currentTodo.id, panel);
+    }
 
     // Remove panel from registry when disposed
     panel.onDidDispose(() => {
         activePanels.delete(panel);
+        // Remove from todo ID mapping if it was an existing todo
+        if (currentTodo && currentTodo.id) {
+            todoIdToPanel.delete(currentTodo.id);
+            // Remove from workspace state
+            const openTodos = context.workspaceState.get('openTodos', []);
+            const updatedOpenTodos = openTodos.filter(id => id !== currentTodo.id);
+            context.workspaceState.update('openTodos', updatedOpenTodos);
+        }
     });
+    
+    // Store open todo ID in workspace state for persistence
+    if (currentTodo && currentTodo.id) {
+        const openTodos = context.workspaceState.get('openTodos', []);
+        if (!openTodos.includes(currentTodo.id)) {
+            openTodos.push(currentTodo.id);
+            context.workspaceState.update('openTodos', openTodos);
+        }
+    }
 
     panel.webview.html = getTodoEditorWebviewContent(panel.webview, context.extensionUri, currentTodo, initialFiles, initialText);
 
@@ -111,7 +164,8 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
                                 title: message.title || '',
                                 notes: message.notes || '',
                                 files: message.files || [],
-                                subtasks: message.subtasks || []
+                                subtasks: message.subtasks || [],
+                                labels: message.labels || []
                             });
                             // Update the current todo reference
                             currentTodo = updatedTodo;
@@ -129,10 +183,21 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
                                 title: message.title || '',
                                 notes: message.notes || '',
                                 files: message.files || [],
-                                subtasks: message.subtasks || []
+                                subtasks: message.subtasks || [],
+                                labels: message.labels || []
                             });
                             // Update the current todo reference so future saves will update instead of create
                             currentTodo = newTodo;
+                            
+                            // Store open todo ID in workspace state for persistence
+                            if (newTodo.id) {
+                                const openTodos = context.workspaceState.get('openTodos', []);
+                                if (!openTodos.includes(newTodo.id)) {
+                                    openTodos.push(newTodo.id);
+                                    context.workspaceState.update('openTodos', openTodos);
+                                }
+                            }
+                            
                             vscode.window.showInformationMessage('To-Do created successfully');
                             if (onSaveCallback) {
                                 onSaveCallback();
@@ -159,7 +224,8 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
                                 title: message.title || '',
                                 notes: message.notes || '',
                                 files: message.files || [],
-                                subtasks: message.subtasks || []
+                                subtasks: message.subtasks || [],
+                                labels: message.labels || []
                             });
                             // Update the current todo reference
                             currentTodo = updatedTodo;
@@ -193,7 +259,8 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
                                 title: message.title || '',
                                 notes: message.notes || '',
                                 files: message.files || [],
-                                subtasks: message.subtasks || []
+                                subtasks: message.subtasks || [],
+                                labels: message.labels || []
                             });
                             currentTodo = updatedTodo;
                             if (onSaveCallback) {
@@ -263,6 +330,7 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
                             const updatedTodo = todoManager.toggleComplete(message.id);
                             // Update the current todo reference with the updated data
                             currentTodo = updatedTodo;
+                            // Refresh sidebar to show updated status
                             if (onSaveCallback) {
                                 onSaveCallback();
                             }
@@ -384,6 +452,11 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
     const notes = todo ? (todo.notes || '') : (initialText || '');
     const selectedFiles = todo ? (todo.files || []) : initialFiles;
     const subtasks = todo ? (todo.subtasks || []) : [];
+    const selectedLabels = todo ? (todo.labels || []) : [];
+    
+    // Load label configuration
+    const availableLabels = getAvailableLabels();
+    const labelConfig = loadLabelConfig();
     
     // Get Monaco editor URIs
     const monacoLoaderUri = webview.asWebviewUri(
@@ -429,7 +502,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             background-color: var(--vscode-input-background);
             color: var(--vscode-input-foreground);
             border: 1px solid var(--vscode-input-border);
-            border-radius: 2px;
+            border-radius: 4px;
             font-family: var(--vscode-font-family);
             font-size: 13px;
         }
@@ -441,9 +514,10 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             width: 100%;
             position: relative;
             border: 1px solid var(--vscode-foreground);
-            border-radius: 2px;
+            border-radius: 4px;
             background-color: var(--vscode-editor-background);
             box-sizing: border-box;
+            overflow: hidden;
         }
         .monaco-editor-container {
             width: 100%;
@@ -452,6 +526,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             overflow: hidden;
             display: block;
             box-sizing: border-box;
+            position: relative;
         }
         .monaco-editor-resize-handle {
             position: absolute;
@@ -479,7 +554,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             width: 40px;
             height: 3px;
             background-color: var(--vscode-panel-border);
-            border-radius: 2px;
+            border-radius: 4px;
             opacity: 0.5;
         }
         .monaco-editor-resize-handle:hover::before,
@@ -503,7 +578,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             margin-bottom: 4px;
             background-color: var(--vscode-list-inactiveSelectionBackground);
             border: 1px solid var(--vscode-input-border);
-            border-radius: 2px;
+            border-radius: 4px;
             cursor: pointer;
         }
         .file-list-item:hover {
@@ -530,7 +605,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         }
         .file-list-item-remove:hover {
             background-color: var(--vscode-button-secondaryHoverBackground);
-            border-radius: 2px;
+            border-radius: 4px;
         }
         .add-file-btn {
             margin-top: 8px;
@@ -544,7 +619,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         .btn {
             padding: 6px 12px;
             border: none;
-            border-radius: 2px;
+            border-radius: 4px;
             cursor: pointer;
             font-size: 13px;
             font-family: var(--vscode-font-family);
@@ -589,7 +664,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             font-size: 11px;
             color: var(--vscode-descriptionForeground);
             padding: 2px 8px;
-            border-radius: 2px;
+            border-radius: 4px;
             transition: opacity 0.2s;
         }
         .auto-save-indicator.saving {
@@ -656,7 +731,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             margin-bottom: 4px;
             background-color: var(--vscode-list-inactiveSelectionBackground);
             border: 1px solid var(--vscode-input-border);
-            border-radius: 2px;
+            border-radius: 4px;
         }
         .subtask-item:hover {
             background-color: var(--vscode-list-hoverBackground);
@@ -686,7 +761,124 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         }
         .subtask-remove:hover {
             background-color: var(--vscode-button-secondaryHoverBackground);
-            border-radius: 2px;
+            border-radius: 4px;
+        }
+        .labels-container {
+            position: relative;
+            margin-top: 8px;
+        }
+        .label-select-wrapper {
+            position: relative;
+        }
+        .label-select {
+            width: 100%;
+            padding: 6px 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 4px;
+            font-family: var(--vscode-font-family);
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .label-select:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: -1px;
+        }
+        .label-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background-color: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        .label-dropdown.open {
+            display: block;
+        }
+        .label-category-group {
+            padding: 8px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .label-category-group:last-child {
+            border-bottom: none;
+        }
+        .label-category-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--vscode-descriptionForeground);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .label-option {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .label-option:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .label-option.disabled {
+            opacity: 0.7;
+        }
+        .label-option.disabled:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .label-option input[type="radio"]:checked {
+            /* Style for selected radio button if needed */
+        }
+        .label-option input[type="radio"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .label-option-label {
+            flex: 1;
+        }
+        .selected-labels {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 12px;
+        }
+        .label-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            background-color: transparent;
+            color: var(--vscode-foreground);
+            border-radius: 4px;
+            border: 1px solid transparent;
+            font-size: 12px;
+            position: relative;
+        }
+        .label-badge::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 4px;
+            border: 1px solid var(--vscode-foreground);
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        .label-badge-remove {
+            margin-left: 6px;
+            cursor: pointer;
+            opacity: 0.7;
+            font-weight: bold;
+        }
+        .label-badge-remove:hover {
+            opacity: 1;
         }
     </style>
 </head>
@@ -713,6 +905,19 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                 <div class="monaco-editor-resize-handle" id="notesEditorResizeHandle"></div>
             </div>
             <input type="hidden" id="todoNotes" value="${escapeHtml(notes)}">
+        </div>
+        <div class="form-group" id="labelsGroup">
+            <label class="form-label">Labels</label>
+            <div class="labels-container">
+                <div class="label-select-wrapper">
+                    <select class="label-select" id="labelSelect" multiple style="display: none;"></select>
+                    <div class="label-select" id="labelSelectButton" style="cursor: pointer;">
+                        <span id="labelSelectText">Select labels...</span>
+                    </div>
+                    <div class="label-dropdown" id="labelDropdown"></div>
+                </div>
+            </div>
+            <div class="selected-labels" id="selectedLabels"></div>
         </div>
         <div class="form-group form-group-divider">
             <label class="form-label">Subtasks</label>
@@ -758,6 +963,9 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         const vscode = acquireVsCodeApi();
         let selectedFiles = ${JSON.stringify(selectedFiles)};
         let subtasks = ${JSON.stringify(subtasks)};
+        let selectedLabels = ${JSON.stringify(selectedLabels)};
+        const availableLabels = ${JSON.stringify(availableLabels)};
+        const labelConfig = ${JSON.stringify(labelConfig)};
         let notesEditor = null;
         let isResizing = false;
         let startY = 0;
@@ -766,6 +974,218 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         const todoId = ${todo && todo.id ? JSON.stringify(todo.id) : null};
         const todoTitle = ${todo ? JSON.stringify(todo.title || todo.notes || 'Untitled') : null};
         const todoCompleted = ${todo ? (todo.completed ? 'true' : 'false') : 'false'};
+        
+        // Initialize label dropdown
+        function initializeLabels() {
+            const dropdown = document.getElementById('labelDropdown');
+            const button = document.getElementById('labelSelectButton');
+            const buttonText = document.getElementById('labelSelectText');
+            
+            if (!dropdown || !button) return;
+            
+            // Build dropdown content grouped by category
+            dropdown.innerHTML = '';
+            
+            // Sort categories to put status first
+            const categoryEntries = Object.entries(availableLabels);
+            categoryEntries.sort((a, b) => {
+                // Put status first
+                if (a[0] === 'status') return -1;
+                if (b[0] === 'status') return 1;
+                // Keep other categories in their original order
+                return 0;
+            });
+            
+            for (const [categoryName, labels] of categoryEntries) {
+                if (labels.length === 0) continue;
+                
+                const categoryGroup = document.createElement('div');
+                categoryGroup.className = 'label-category-group';
+                
+                const categoryTitle = document.createElement('div');
+                categoryTitle.className = 'label-category-title';
+                categoryTitle.textContent = categoryName;
+                categoryGroup.appendChild(categoryTitle);
+                
+                labels.forEach(labelItem => {
+                    const option = document.createElement('div');
+                    option.className = 'label-option';
+                    option.dataset.label = labelItem.label;
+                    option.dataset.category = categoryName;
+                    
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = 'label-category-' + categoryName; // Group by category
+                    radio.value = labelItem.label;
+                    radio.checked = selectedLabels.includes(labelItem.label);
+                    
+                    const labelSpan = document.createElement('span');
+                    labelSpan.className = 'label-option-label';
+                    labelSpan.textContent = labelItem.displayName;
+                    
+                    option.appendChild(radio);
+                    option.appendChild(labelSpan);
+                    
+                    // Function to handle label selection (one per category)
+                    const handleLabelChange = () => {
+                        const label = radio.value;
+                        const category = categoryName;
+                        
+                        if (radio.checked) {
+                            // Remove any existing label from this category in selectedLabels array
+                            selectedLabels = selectedLabels.filter(l => {
+                                const [cat] = l.split(':');
+                                return cat !== category;
+                            });
+                            
+                            // Add new label
+                            selectedLabels.push(label);
+                        }
+                        
+                        // Update UI to reflect changes
+                        updateLabelDropdown();
+                        renderSelectedLabels();
+                        markChange();
+                    };
+                    
+                    // Handle radio change
+                    radio.addEventListener('change', handleLabelChange);
+                    
+                    // Handle clicking on the option (text or container) - select radio
+                    option.addEventListener('click', (e) => {
+                        // If clicking directly on radio, let it handle itself
+                        if (e.target === radio) {
+                            return;
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        // Select radio programmatically
+                        radio.checked = true;
+                        // Trigger change event to update state
+                        radio.dispatchEvent(new Event('change'));
+                    });
+                    
+                    categoryGroup.appendChild(option);
+                });
+                
+                dropdown.appendChild(categoryGroup);
+            }
+            
+            // Toggle dropdown on button click
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('open');
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!dropdown.contains(e.target) && !button.contains(e.target)) {
+                    dropdown.classList.remove('open');
+                }
+            });
+            
+            updateLabelDropdown();
+            renderSelectedLabels();
+        }
+        
+        // Update dropdown state (radio buttons automatically handle one selection per group)
+        function updateLabelDropdown() {
+            const dropdown = document.getElementById('labelDropdown');
+            if (!dropdown) return;
+            
+            // Get currently selected label for each category
+            const selectedLabelByCategory = new Map();
+            selectedLabels.forEach(label => {
+                const [category] = label.split(':');
+                selectedLabelByCategory.set(category, label);
+            });
+            
+            // Update each option's radio state
+            dropdown.querySelectorAll('.label-option').forEach(option => {
+                const category = option.dataset.category;
+                const radio = option.querySelector('input[type="radio"]');
+                const optionLabel = radio.value;
+                
+                // Check if this label is currently selected
+                const isSelected = selectedLabelByCategory.get(category) === optionLabel;
+                radio.checked = isSelected;
+                
+                // Remove disabled class - radio buttons handle single selection automatically
+                option.classList.remove('disabled');
+                radio.disabled = false;
+            });
+            
+            // Update button text
+            const buttonText = document.getElementById('labelSelectText');
+            if (buttonText) {
+                if (selectedLabels.length === 0) {
+                    buttonText.textContent = 'Select labels...';
+                } else {
+                    buttonText.textContent = \`\${selectedLabels.length} label(s) selected\`;
+                }
+            }
+        }
+        
+        // Render selected labels as badges
+        function renderSelectedLabels() {
+            const container = document.getElementById('selectedLabels');
+            if (!container) return;
+            
+            if (selectedLabels.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            // Sort labels according to category order, with status first
+            const categoryOrder = Object.keys(availableLabels);
+            const sortedLabels = selectedLabels.sort((a, b) => {
+                const [catA] = a.split(':');
+                const [catB] = b.split(':');
+                
+                // Put status first
+                if (catA === 'status' && catB !== 'status') return -1;
+                if (catB === 'status' && catA !== 'status') return 1;
+                
+                const indexA = categoryOrder.indexOf(catA);
+                const indexB = categoryOrder.indexOf(catB);
+                // If category not found, put at end
+                if (indexA === -1 && indexB === -1) return 0;
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+            
+            container.innerHTML = sortedLabels.map(label => {
+                const [category, value] = label.split(':');
+                const displayName = value || label;
+                
+                return \`
+                    <span class="label-badge" title="\${label}">
+                        \${displayName}
+                        <span class="label-badge-remove" onclick="removeLabel('\${label}')" title="Remove label">×</span>
+                    </span>
+                \`;
+            }).join('');
+        }
+        
+        // Remove a label
+        function removeLabel(label) {
+            selectedLabels = selectedLabels.filter(l => l !== label);
+            
+            // Update checkbox in dropdown
+            const dropdown = document.getElementById('labelDropdown');
+            if (dropdown) {
+                const checkbox = dropdown.querySelector(\`input[value="\${label}"]\`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            }
+            
+            updateLabelDropdown();
+            renderSelectedLabels();
+            markChange();
+        }
         
         // Auto-save state tracking
         let hasChanges = false;
@@ -819,7 +1239,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                     textarea.style.backgroundColor = 'var(--vscode-input-background)';
                     textarea.style.color = 'var(--vscode-input-foreground)';
                     textarea.style.border = '1px solid var(--vscode-input-border)';
-                    textarea.style.borderRadius = '2px';
+                    textarea.style.borderRadius = '4px';
                     textarea.style.fontFamily = 'var(--vscode-font-family)';
                     textarea.style.fontSize = '13px';
                     textarea.style.resize = 'vertical';
@@ -1360,7 +1780,8 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                 title: title,
                 notes: notes,
                 files: selectedFiles.slice().sort(),
-                subtasks: JSON.parse(JSON.stringify(subtasks))
+                subtasks: JSON.parse(JSON.stringify(subtasks)),
+                labels: selectedLabels.slice().sort()
             };
         }
         
@@ -1391,7 +1812,8 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                 title: currentState.title,
                 notes: currentState.notes,
                 files: currentState.files,
-                subtasks: currentState.subtasks
+                subtasks: currentState.subtasks,
+                labels: currentState.labels
             });
         }
         
@@ -1462,7 +1884,8 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                         title: currentState.title,
                         notes: currentState.notes,
                         files: currentState.files,
-                        subtasks: currentState.subtasks
+                        subtasks: currentState.subtasks,
+                        labels: currentState.labels
                     });
                 }
             } else if (message.command === 'triggerSave') {
@@ -1515,7 +1938,8 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                 title: title,
                 notes: notes,
                 files: selectedFiles,
-                subtasks: subtasks
+                subtasks: subtasks,
+                labels: selectedLabels
             });
             // Update last saved state after manual save
             if (isEditMode && todoId) {
@@ -1594,6 +2018,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         }, 100);
         
         // Initial render
+        initializeLabels();
         renderFileList();
     </script>
 </body>
@@ -1603,5 +2028,6 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
 module.exports = {
     createTodoWebviewPanel,
     getTodoEditorWebviewContent,
-    getActivePanel
+    getActivePanel,
+    getPanelForTodo
 };

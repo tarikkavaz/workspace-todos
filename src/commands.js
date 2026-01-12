@@ -1,15 +1,17 @@
 const vscode = require('vscode');
 const todoManager = require('./todoManager');
 const { getRelativeFilePath } = require('./utils');
-const { createTodoWebviewPanel, getActivePanel } = require('./todoEditor');
+const { createTodoWebviewPanel, getActivePanel, getPanelForTodo } = require('./todoEditor');
+const { TodosTreeDataProvider } = require('./treeView');
 
 /**
  * Register all extension commands
  * @param {vscode.ExtensionContext} context - The extension context
  * @param {Function} refreshTree - Function to refresh the tree view
  * @param {vscode.OutputChannel} globalOutputChannel - Output channel for logging
+ * @param {TodosTreeDataProvider} treeDataProvider - Tree data provider for filter commands
  */
-function registerCommands(context, refreshTree, globalOutputChannel) {
+function registerCommands(context, refreshTree, globalOutputChannel, treeDataProvider, completedTreeDataProvider) {
     try {
         context.subscriptions.push(
             vscode.commands.registerCommand('workspaceTodos.refresh', refreshTree),
@@ -49,6 +51,15 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                         return;
                     }
                     
+                    // Check if this todo is already open in an editor
+                    const existingPanel = getPanelForTodo(todo.id);
+                    if (existingPanel) {
+                        // Focus the existing panel instead of creating a new one
+                        existingPanel.reveal();
+                        return;
+                    }
+                    
+                    // Create new panel if not already open
                     createTodoWebviewPanel(context, todo, refreshTree);
                 } catch (error) {
                     vscode.window.showErrorMessage(`Error opening editor: ${error.message}`);
@@ -74,6 +85,34 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                     refreshTree();
                 } catch (error) {
                     vscode.window.showErrorMessage(`Error toggling To-Do: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.markUncomplete', (item) => {
+                try {
+                    let todoId = null;
+                    if (item && item.todoId) {
+                        todoId = item.todoId;
+                    } else if (item && item.todo && item.todo.id) {
+                        todoId = item.todo.id;
+                    } else if (item && item.id) {
+                        todoId = item.id;
+                    }
+                    
+                    if (!todoId) {
+                        vscode.window.showErrorMessage('Invalid To-Do item selected');
+                        return;
+                    }
+                    
+                    // Only mark as uncompleted if it's currently completed
+                    const todosData = todoManager.loadTodos();
+                    const todo = todosData.todos?.find(t => t.id === todoId);
+                    if (todo && todo.completed) {
+                        todoManager.toggleComplete(todoId);
+                        refreshTree();
+                        vscode.window.showInformationMessage('To-Do marked as incomplete');
+                    }
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Error marking To-Do as incomplete: ${error.message}`);
                 }
             }),
             vscode.commands.registerCommand('workspaceTodos.deleteTodo', (item) => {
@@ -355,6 +394,31 @@ function registerCommands(context, refreshTree, globalOutputChannel) {
                 const activePanel = getActivePanel();
                 if (activePanel) {
                     activePanel.webview.postMessage({ command: 'triggerDelete' });
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.toggleFilterLabel', (item) => {
+                try {
+                    // Get the data provider from the filter item (works with both active and completed views)
+                    const dataProvider = item?.dataProvider;
+                    if (dataProvider && typeof dataProvider.toggleFilterLabel === 'function' && item?.fullLabel) {
+                        dataProvider.toggleFilterLabel(item.fullLabel);
+                    }
+                } catch (error) {
+                    globalOutputChannel.appendLine(`Error toggling filter label: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.clearFilters', (item) => {
+                try {
+                    // If item is provided, use its data provider, otherwise clear both
+                    if (item?.dataProvider && typeof item.dataProvider.clearFilters === 'function') {
+                        item.dataProvider.clearFilters();
+                    } else {
+                        // Clear filters in both providers if no specific item provided
+                        if (treeDataProvider) treeDataProvider.clearFilters();
+                        if (completedTreeDataProvider) completedTreeDataProvider.clearFilters();
+                    }
+                } catch (error) {
+                    globalOutputChannel.appendLine(`Error clearing filters: ${error.message}`);
                 }
             })
         );

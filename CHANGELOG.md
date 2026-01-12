@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-01-13
+
+### Added
+- **Label System**: Comprehensive label system for organizing todos
+  - Five default categories: Priority, Type, Quality/Concern Area, Status, and Scope
+  - Custom categories support through settings
+  - Ability to hide default categories or specific labels
+  - Radio button selection (one value per category)
+  - Labels displayed as badges in the editor and sidebar
+- **Split Sidebar**: Resizable sidebar split into two sections
+  - **To-do's** section: Active todos grouped by status (In Progress, Backlog, Planned, etc.)
+  - **Completed** section: All completed/done todos in a separate resizable area
+  - Independent filter systems for both sections
+- **Filter System**: Label-based filtering in both sidebar sections
+  - Filter todos by selecting labels from the filter panel
+  - Visual indicators for selected filters
+  - Clear filters option
+  - Filter labels exclude "done" status from default view
+- **Editor Persistence**: Open todo editors persist across workspace restarts
+  - Editors automatically reopen when workspace is loaded
+  - State is saved in workspace storage
+- **Smart Editor Focus**: Clicking a todo in sidebar focuses existing editor instead of creating duplicate
+  - Prevents multiple editors for the same todo
+  - Automatically reveals and focuses the existing editor panel
+
+### Changed
+- **Label Selection UI**: Changed from checkboxes to radio buttons for one-per-category selection
+  - Radio buttons grouped by category ensure only one selection per category
+  - Status category appears first in dropdown and badge list
+  - Clearer visual indication of single-selection behavior
+- **Status Organization**: Sidebar organized by status labels instead of simple Active/Completed
+  - "In Progress" section appears first
+  - Other status sections follow (Backlog, Planned, etc.)
+  - "No Status" section for todos without status labels
+  - Completed todos moved to separate "Completed" section
+- **Editor Tab Icon**: Todo editor tab shows checkmark icon instead of default
+  - Light and dark theme variants for proper visibility
+- **Sidebar Label Display**: Labels removed from next to title, only shown in tooltip
+  - Cleaner sidebar appearance
+  - File count and completion status shown as description
+- **Uncomplete Behavior**: Marking as uncomplete now removes ALL status labels
+  - Ensures "done" status is fully removed when uncompleting
+  - Uncomplete and removing done status are now equivalent
+
+### Fixed
+- **Label Selection Bug**: Fixed issue where multiple labels could be selected per category
+- **Sidebar Refresh**: Sidebar now automatically refreshes when labels are changed in editor
+- **Monaco Editor**: Fixed template literal syntax issue in label selection code
+- **Editor Icon**: Fixed editor tab icon not displaying (now uses light/dark theme variants)
+
 ## [1.0.2] - 2026-01-12
 
 ### Added

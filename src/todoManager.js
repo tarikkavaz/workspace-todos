@@ -89,6 +89,7 @@ function createTodo(data) {
         notes: data.notes || '',
         files: data.files || [],
         subtasks: data.subtasks || [],
+        labels: data.labels || [],
         completed: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -142,8 +143,26 @@ function toggleComplete(id) {
     if (todoIndex === -1) {
         throw new Error(`TODO with id ${id} not found`);
     }
-    todosData.todos[todoIndex].completed = !todosData.todos[todoIndex].completed;
-    todosData.todos[todoIndex].updatedAt = new Date().toISOString();
+    const todo = todosData.todos[todoIndex];
+    todo.completed = !todo.completed;
+    todo.updatedAt = new Date().toISOString();
+    
+    // Always add/replace status:done when marking complete
+    if (todo.completed) {
+        if (!todo.labels) {
+            todo.labels = [];
+        }
+        // Remove any existing status label
+        todo.labels = todo.labels.filter(label => !label.startsWith('status:'));
+        // Add status:done
+        todo.labels.push('status:done');
+    } else {
+        // When uncompleting, remove ALL status labels (including status:done)
+        if (todo.labels) {
+            todo.labels = todo.labels.filter(label => !label.startsWith('status:'));
+        }
+    }
+    
     saveTodos(todosData);
     return todosData.todos[todoIndex];
 }
@@ -281,6 +300,11 @@ function exportTodosToMarkdown() {
                     });
                 }
                 
+                // Add labels if present
+                if (todo.labels && todo.labels.length > 0) {
+                    markdown += `  *Labels*: ${todo.labels.join(', ')}\n`;
+                }
+                
                 // Add related files if present
                 if (todo.files && todo.files.length > 0) {
                     markdown += `  *Related Files*:\n`;
@@ -310,6 +334,11 @@ function exportTodosToMarkdown() {
                         const subtaskStatus = subtask.completed ? 'x' : ' ';
                         markdown += `  - [${subtaskStatus}] ${escapeMarkdown(subtask.text || 'Untitled subtask')}\n`;
                     });
+                }
+                
+                // Add labels if present
+                if (todo.labels && todo.labels.length > 0) {
+                    markdown += `  *Labels*: ${todo.labels.join(', ')}\n`;
                 }
                 
                 // Add related files if present

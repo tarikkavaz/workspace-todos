@@ -369,6 +369,15 @@ function exportTodosToMarkdown() {
             return false;
         });
 
+        // Helper function to format labels with backticks
+        const formatLabels = (labels) => {
+            return labels.map(label => {
+                const [key, ...valueParts] = label.split(':');
+                const value = valueParts.join(':'); // Handle values that contain colons
+                return `${key}:\`${value}\``;
+            }).join(', ');
+        };
+
         // Add uncompleted todos section with status grouping
         if (uncompletedTodos.length > 0) {
             markdown += '## Active Tasks\n\n';
@@ -403,7 +412,14 @@ function exportTodosToMarkdown() {
                 
                 // Add notes if present and different from title
                 if (todo.notes && todo.notes.trim() && todo.title && todo.notes !== todo.title) {
-                    todoMarkdown += `  ${todo.notes.split('\n').join('\n  ')}\n`;
+                    const notesLines = todo.notes.split('\n');
+                    const firstLine = notesLines[0];
+                    const remainingLines = notesLines.slice(1);
+                    todoMarkdown += `  - ${firstLine}`;
+                    if (remainingLines.length > 0) {
+                        todoMarkdown += '\n' + remainingLines.map(line => `    ${line}`).join('\n');
+                    }
+                    todoMarkdown += '\n';
                 } else if (todo.notes && todo.notes.trim() && !todo.title) {
                     // If no title, the notes are already in the checkbox line
                 }
@@ -419,7 +435,7 @@ function exportTodosToMarkdown() {
                 // Add labels if present (excluding status label as it's shown in section header)
                 const nonStatusLabels = todo.labels?.filter(label => !label.startsWith('status:')) || [];
                 if (nonStatusLabels.length > 0) {
-                    todoMarkdown += `  *Labels*: ${nonStatusLabels.join(', ')}\n`;
+                    todoMarkdown += `  - *Labels*: ${formatLabels(nonStatusLabels)}\n`;
                 }
                 
                 // Add related files if present
@@ -473,7 +489,14 @@ function exportTodosToMarkdown() {
                 
                 // Add notes if present and different from title
                 if (todo.notes && todo.notes.trim() && todo.title && todo.notes !== todo.title) {
-                    markdown += `  ${todo.notes.split('\n').join('\n  ')}\n`;
+                    const notesLines = todo.notes.split('\n');
+                    const firstLine = notesLines[0];
+                    const remainingLines = notesLines.slice(1);
+                    markdown += `  - ${firstLine}`;
+                    if (remainingLines.length > 0) {
+                        markdown += '\n' + remainingLines.map(line => `    ${line}`).join('\n');
+                    }
+                    markdown += '\n';
                 }
                 
                 // Add subtasks if present
@@ -487,7 +510,7 @@ function exportTodosToMarkdown() {
                 // Add labels if present (excluding status:done as it's implied)
                 const nonStatusLabels = todo.labels?.filter(label => label !== 'status:done') || [];
                 if (nonStatusLabels.length > 0) {
-                    markdown += `  *Labels*: ${nonStatusLabels.join(', ')}\n`;
+                    markdown += `  - *Labels*: ${formatLabels(nonStatusLabels)}\n`;
                 }
                 
                 // Add related files if present

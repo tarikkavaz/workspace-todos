@@ -40,6 +40,200 @@ class TodosTreeDataProvider {
         return element;
     }
 
+    // Drag and Drop support
+    get dragMimeTypes() {
+        return ['application/vnd.code.tree.workspaceTodosView'];
+    }
+
+    get dropMimeTypes() {
+        return ['application/vnd.code.tree.workspaceTodosView'];
+    }
+
+    async handleDrag(source, dataTransfer, token) {
+        if (token.isCancellationRequested) {
+            return;
+        }
+
+
+        // VS Code passes an array of selected items
+        const sources = Array.isArray(source) ? source : [source];
+        const draggedTodoIds = [];
+
+        this._outputChannel.appendLine(`Drag: Source type - ${source?.constructor?.name || typeof source}, length: ${sources.length}`);
+
+        for (let i = 0; i < sources.length; i++) {
+            const item = sources[i];
+            this._outputChannel.appendLine(`Drag: Item ${i} - type: ${item?.constructor?.name || typeof item}, has todoId: ${!!item?.todoId}, has todo: ${!!item?.todo}`);
+            
+            let draggedTodoId = null;
+            if (item instanceof TodoTreeItem) {
+                draggedTodoId = item.todoId;
+                this._outputChannel.appendLine(`Drag: Item ${i} is TodoTreeItem with id: ${draggedTodoId}`);
+            } else if (item && item.todoId) {
+                draggedTodoId = item.todoId;
+                this._outputChannel.appendLine(`Drag: Item ${i} has todoId: ${draggedTodoId}`);
+            } else if (item && item.todo && item.todo.id) {
+                draggedTodoId = item.todo.id;
+                this._outputChannel.appendLine(`Drag: Item ${i} has todo.id: ${draggedTodoId}`);
+            } else if (item && typeof item === 'object') {
+                // Try to extract ID from any object properties
+                this._outputChannel.appendLine(`Drag: Item ${i} keys: ${Object.keys(item || {}).join(', ')}`);
+            }
+
+            if (draggedTodoId) {
+                draggedTodoIds.push(draggedTodoId);
+            }
+        }
+
+        if (draggedTodoIds.length === 0) {
+            this._outputChannel.appendLine(`Drag: No valid todo IDs found in source`);
+            return;
+        }
+
+        // Serialize the dragged todo IDs
+        const data = JSON.stringify(draggedTodoIds);
+        this._outputChannel.appendLine(`Drag: Dragging todos ${draggedTodoIds.join(', ')}`);
+        dataTransfer.set('application/vnd.code.tree.workspaceTodosView', new vscode.DataTransferItem(data));
+    }
+
+    async handleDrop(target, dataTransfer, token) {
+        if (token.isCancellationRequested) {
+            return;
+        }
+
+        try {
+            this._outputChannel.appendLine(`Drop: Attempting drop`);
+            const transferItem = dataTransfer.get('application/vnd.code.tree.workspaceTodosView');
+            if (!transferItem) {
+                this._outputChannel.appendLine(`Drop: No transfer item found`);
+                return;
+            }
+
+            const draggedTodoIds = JSON.parse(await transferItem.asString());
+            if (!Array.isArray(draggedTodoIds) || draggedTodoIds.length === 0) {
+                return;
+            }
+
+            this._outputChannel.appendLine(`Drop: Received ${draggedTodoIds.length} todo(s)`);
+            
+            // Determine target section and index
+            let targetSection = null;
+            let targetIndex = 0;
+
+            if (target instanceof SectionTreeItem) {
+                // Dropping on a section header - add to end of that section
+                targetSection = target.sectionType;
+                const todosInSection = this._getTodosForSection(targetSection);
+                targetIndex = todosInSection.length;
+                this._outputChannel.appendLine(`Drop: Target is section ${targetSection} at index ${targetIndex}`);
+            } else if (target instanceof TodoTreeItem && target.todoId) {
+                // Dropping on a todo - insert before/after that todo
+                const targetTodo = target.todo;
+                targetSection = todoManager.getTodoSectionType(targetTodo);
+                
+                // Get all todos in the target section, sorted by order
+                const todosInSection = this._getTodosForSection(targetSection);
+                const targetTodoIndex = todosInSection.findIndex(t => t.id === targetTodo.id);
+                
+                if (targetTodoIndex >= 0) {
+                    // Check if we're moving within the same section
+                    const sourceSection = todoManager.getTodoSectionType(
+                        todosInSection.find(t => draggedTodoIds.includes(t.id)) || 
+                        todoManager.loadTodos().todos.find(t => draggedTodoIds.includes(t.id))
+                    );
+                    
+                    if (sourceSection === targetSection) {
+                        // Moving within same section - adjust index if dragging from before target
+                        const draggedIndex = todosInSection.findIndex(t => draggedTodoIds.includes(t.id));
+                        if (draggedIndex >= 0 && draggedIndex < targetTodoIndex) {
+                            targetIndex = targetTodoIndex; // Insert after target (since we're removing from before)
+                        } else {
+                            targetIndex = targetTodoIndex; // Insert before target
+                        }
+                    } else {
+                        targetIndex = targetTodoIndex; // Insert before target when moving between sections
+                    }
+                } else {
+                    targetIndex = todosInSection.length; // Fallback to end
+                }
+            } else {
+                // Invalid drop target
+                return;
+            }
+
+            // Get source section for status update
+            const todosData = todoManager.loadTodos();
+            const firstDraggedTodo = todosData.todos.find(t => draggedTodoIds.includes(t.id));
+            const sourceSection = firstDraggedTodo ? todoManager.getTodoSectionType(firstDraggedTodo) : null;
+
+            // Perform the reorder
+            todoManager.reorderTodos(draggedTodoIds, targetIndex, targetSection, sourceSection);
+
+            // Refresh the tree
+            this.refresh();
+        } catch (error) {
+            this._outputChannel.appendLine(`Error handling drop: ${error.message}`);
+            vscode.window.showErrorMessage(`Error reordering todos: ${error.message}`);
+        }
+    }
+
+    _getTodosForSection(sectionType) {
+        const todosData = todoManager.loadTodos();
+        let todos = todosData.todos || [];
+
+        // Filter out completed todos (they go in "Completed" view)
+        todos = todos.filter(todo => {
+            const statusLabel = todo.labels?.find(label => label.startsWith('status:'));
+            if (statusLabel) {
+                const statusValue = statusLabel.split(':')[1];
+                if (statusValue === 'done') {
+                    return false;
+                }
+            }
+            if (todo.completed === true) {
+                return false;
+            }
+            return true;
+        });
+
+        // Apply label filter if any labels are selected
+        if (this._selectedFilterLabels.size > 0) {
+            todos = todos.filter(todo => {
+                if (!todo.labels || todo.labels.length === 0) return false;
+                return Array.from(this._selectedFilterLabels).some(filterLabel => 
+                    todo.labels.includes(filterLabel)
+                );
+            });
+        }
+
+        // Filter by section type
+        if (sectionType === 'no-status') {
+            todos = todos.filter(t => {
+                if (t.completed === true) return false;
+                const statusLabel = t.labels?.find(label => label.startsWith('status:'));
+                if (statusLabel) {
+                    const statusValue = statusLabel.split(':')[1];
+                    if (statusValue === 'done') return false;
+                }
+                return !t.labels || !t.labels.some(label => label.startsWith('status:'));
+            });
+        } else {
+            todos = todos.filter(t => {
+                if (t.completed === true) return false;
+                const statusLabel = t.labels?.find(label => label.startsWith('status:'));
+                if (statusLabel) {
+                    const statusValue = statusLabel.split(':')[1];
+                    if (statusValue === 'done') return false;
+                    return statusValue === sectionType;
+                }
+                return false;
+            });
+        }
+
+        // Sort by order
+        return todos.sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+
     getChildren(element) {
         try {
             const todosData = todoManager.loadTodos();
@@ -219,7 +413,7 @@ class TodosTreeDataProvider {
                 }
                 
                 if (element.sectionType === 'no-status') {
-                    // Return todos without status labels (exclude completed ones)
+                    // Return todos without status labels (exclude completed ones), sorted by order
                     return todos
                         .filter(t => {
                             // Exclude completed todos
@@ -231,9 +425,10 @@ class TodosTreeDataProvider {
                             }
                             return !t.labels || !t.labels.some(label => label.startsWith('status:'));
                         })
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
                         .map(todo => new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false));
                 } else {
-                    // Return todos with the specific status (exclude completed ones)
+                    // Return todos with the specific status (exclude completed ones), sorted by order
                     return todos
                         .filter(t => {
                             // Exclude completed todos
@@ -247,6 +442,7 @@ class TodosTreeDataProvider {
                             }
                             return false;
                         })
+                        .sort((a, b) => (a.order || 0) - (b.order || 0))
                         .map(todo => new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false));
                 }
             }
@@ -351,6 +547,12 @@ class TodoTreeItem extends vscode.TreeItem {
         this.todo = todo;
         this.todoId = todo.id; // Store ID separately for easier access
         this.contextValue = 'todo';
+        
+        // Set resourceUri to enable drag-and-drop functionality
+        // Use a custom URI scheme to avoid file-specific styling (which causes gray text)
+        // This enables drag-and-drop without triggering file colorization
+        this.resourceUri = vscode.Uri.parse(`todo-item://${todo.id}`);
+        
         // Show title in tooltip, with notes if available
         const tooltipParts = [];
         if (todo.title) tooltipParts.push(todo.title);
@@ -427,6 +629,145 @@ class CompletedTodosTreeDataProvider {
         return element;
     }
 
+    // Drag and Drop support
+    get dragMimeTypes() {
+        return ['application/vnd.code.tree.workspaceTodosView'];
+    }
+
+    get dropMimeTypes() {
+        return ['application/vnd.code.tree.workspaceTodosView'];
+    }
+
+    async handleDrag(source, dataTransfer, token) {
+        if (token.isCancellationRequested) {
+            return;
+        }
+
+
+        // VS Code passes an array of selected items
+        const sources = Array.isArray(source) ? source : [source];
+        const draggedTodoIds = [];
+
+        for (const item of sources) {
+            let draggedTodoId = null;
+            if (item instanceof TodoTreeItem) {
+                draggedTodoId = item.todoId;
+            } else if (item && item.todoId) {
+                draggedTodoId = item.todoId;
+            } else if (item && item.todo && item.todo.id) {
+                draggedTodoId = item.todo.id;
+            }
+
+            if (draggedTodoId) {
+                draggedTodoIds.push(draggedTodoId);
+            }
+        }
+
+        if (draggedTodoIds.length === 0) {
+            this._outputChannel.appendLine(`Drag (Completed): Invalid source - ${source?.constructor?.name || typeof source}`);
+            return;
+        }
+
+        // Serialize the dragged todo IDs
+        const data = JSON.stringify(draggedTodoIds);
+        this._outputChannel.appendLine(`Drag (Completed): Dragging todos ${draggedTodoIds.join(', ')}`);
+        dataTransfer.set('application/vnd.code.tree.workspaceTodosCompletedView', new vscode.DataTransferItem(data));
+    }
+
+    async handleDrop(target, dataTransfer, token) {
+        if (token.isCancellationRequested) {
+            return;
+        }
+
+        try {
+            const transferItem = dataTransfer.get('application/vnd.code.tree.workspaceTodosCompletedView');
+            if (!transferItem) {
+                return;
+            }
+
+            const draggedTodoIds = JSON.parse(await transferItem.asString());
+            if (!Array.isArray(draggedTodoIds) || draggedTodoIds.length === 0) {
+                return;
+            }
+
+            // In completed view, todos are at root level (no sections)
+            // Determine target index
+            let targetIndex = 0;
+
+            if (target instanceof TodoTreeItem && target.todoId) {
+                // Dropping on a todo - insert before that todo
+                const todosData = todoManager.loadTodos();
+                const completedTodos = this._getCompletedTodos().sort((a, b) => (a.order || 0) - (b.order || 0));
+                const targetTodoIndex = completedTodos.findIndex(t => t.id === target.todoId);
+                
+                if (targetTodoIndex >= 0) {
+                    // Check if we're moving within the same list
+                    const draggedIndex = completedTodos.findIndex(t => draggedTodoIds.includes(t.id));
+                    if (draggedIndex >= 0 && draggedIndex < targetTodoIndex) {
+                        targetIndex = targetTodoIndex; // Insert after target (since we're removing from before)
+                    } else {
+                        targetIndex = targetTodoIndex; // Insert before target
+                    }
+                } else {
+                    targetIndex = completedTodos.length; // Fallback to end
+                }
+            } else if (!target) {
+                // Dropping at root level - add to end
+                const completedTodos = this._getCompletedTodos();
+                targetIndex = completedTodos.length;
+            } else {
+                // Invalid drop target (e.g., filter item)
+                return;
+            }
+
+            // Get source section for status update (should be 'done' for completed todos)
+            const todosData = todoManager.loadTodos();
+            const firstDraggedTodo = todosData.todos.find(t => draggedTodoIds.includes(t.id));
+            const sourceSection = firstDraggedTodo ? todoManager.getTodoSectionType(firstDraggedTodo) : 'done';
+
+            // Perform the reorder (target section is 'done' for completed view)
+            todoManager.reorderTodos(draggedTodoIds, targetIndex, 'done', sourceSection);
+
+            // Refresh the tree
+            this.refresh();
+        } catch (error) {
+            this._outputChannel.appendLine(`Error handling drop: ${error.message}`);
+            vscode.window.showErrorMessage(`Error reordering todos: ${error.message}`);
+        }
+    }
+
+    _getCompletedTodos() {
+        const todosData = todoManager.loadTodos();
+        const todos = todosData.todos || [];
+        
+        // Get all completed todos
+        let completedTodos = todos.filter(todo => {
+            const statusLabel = todo.labels?.find(label => label.startsWith('status:'));
+            if (statusLabel) {
+                const statusValue = statusLabel.split(':')[1];
+                if (statusValue === 'done') {
+                    return true;
+                }
+            }
+            if (todo.completed === true) {
+                return true;
+            }
+            return false;
+        });
+
+        // Apply label filter if any labels are selected
+        if (this._selectedFilterLabels.size > 0) {
+            completedTodos = completedTodos.filter(todo => {
+                if (!todo.labels || todo.labels.length === 0) return false;
+                return Array.from(this._selectedFilterLabels).some(filterLabel => 
+                    todo.labels.includes(filterLabel)
+                );
+            });
+        }
+
+        return completedTodos;
+    }
+
     getChildren(element) {
         try {
             const todosData = todoManager.loadTodos();
@@ -488,10 +829,12 @@ class CompletedTodosTreeDataProvider {
                     return rootItems;
                 }
                 
-                // Return completed todos
-                completedTodos.forEach(todo => {
-                    rootItems.push(new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false));
-                });
+                // Return completed todos, sorted by order
+                completedTodos
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .forEach(todo => {
+                        rootItems.push(new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false));
+                    });
                 
                 return rootItems;
             } else if (element instanceof FilterTreeItem) {

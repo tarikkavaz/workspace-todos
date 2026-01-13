@@ -32,12 +32,14 @@ function activate(context) {
         
         const treeView = vscode.window.createTreeView('workspaceTodosView', {
             treeDataProvider: treeDataProvider,
+            dragAndDropController: treeDataProvider,
             showCollapseAll: false
         });
         context.subscriptions.push(treeView);
         
         const completedTreeView = vscode.window.createTreeView('workspaceTodosCompletedView', {
             treeDataProvider: completedTreeDataProvider,
+            dragAndDropController: completedTreeDataProvider,
             showCollapseAll: false
         });
         context.subscriptions.push(completedTreeView);

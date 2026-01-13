@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-01-15
+
+### Added
+- **Drag-and-Drop Sorting**: Reorder todos by dragging them in the sidebar
+  - Drag todos within the same status section to reorder
+  - Drag todos between different status sections to move and automatically update status
+  - Sort order is persisted to `todos.json` and maintained across VS Code sessions
+  - Works in both "To-do's" and "Completed" sections
+  - Automatic status label updates when moving todos between sections
+- **Order Persistence**: Todos now include an `order` field that preserves your custom sort order
+  - Existing todos automatically get order values assigned on first load
+  - New todos are added at the end of their section by default
+- **Enhanced Markdown Export**: Export now respects sort order and groups by status
+  - Active todos exported with status-based sections (### In Progress, ### Planned, etc.)
+  - Todos maintain their custom order within each section
+  - Completed todos section maintains sort order
+
+### Changed
+- **Markdown Export Format**: Improved structure with status-based grouping
+  - Active tasks section now includes subsections for each status (In Progress, Planned, etc.)
+  - Status labels excluded from individual todo labels in export (shown in section headers)
+  - Export preserves the exact order you've set via drag-and-drop
+
 ## [1.0.3] - 2026-01-13
 
 ### Added

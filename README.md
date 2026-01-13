@@ -6,6 +6,9 @@ A VS Code extension to manage workspace-specific to-do lists directly in your ed
 ## Features
 
 - **Workspace-Specific**: Todos are stored per workspace in `.vscode/todos.json`
+- **Drag-and-Drop Sorting**: Reorder todos by dragging them in the sidebar
+  - Drag within sections to reorder, or between sections to move and update status
+  - Sort order persists across VS Code sessions
 - **Split Sidebar View**: Resizable sidebar with separate sections for active and completed todos
 - **Label System**: Comprehensive labeling with categories (Priority, Type, Status, Quality, Scope)
   - Custom categories and label values
@@ -111,6 +114,10 @@ The extension adds a new view to the activity bar sidebar with two resizable sec
   - "In Progress" appears first
   - Other status sections (Backlog, Planned, Review, etc.)
   - "No Status" section for todos without status labels
+- **Drag-and-Drop Sorting**: Drag todos to reorder within sections or move between sections
+  - Drag a todo to reorder it within the same status section
+  - Drag a todo to a different status section to move it and automatically update its status
+  - Sort order is saved and persists across VS Code sessions
 - Each todo shows:
   - Title (or first line of notes if no title)
   - Checkmark icon for completed todos, circle for active
@@ -119,6 +126,7 @@ The extension adds a new view to the activity bar sidebar with two resizable sec
 #### Completed Section (Bottom)
 - All completed/done todos in a separate resizable section
 - Independent filter system
+- **Drag-and-Drop Sorting**: Drag completed todos to reorder them
 - Checkmark icon to mark todos as uncompleted
 
 You can resize the sections by dragging the divider between them.
@@ -164,11 +172,6 @@ The extension automatically saves your changes to prevent data loss:
 - **Save on Tab Switch**: Changes are immediately saved when you switch to another file or tab
 - **Visual Feedback**: The editor header shows "Saving..." and "Saved" indicators
 - **Manual Save**: The "Save" button is still available for explicit control and immediate feedback
-
-**Benefits:**
-- Never lose your work when switching between files
-- No need to manually save after every change
-- Seamless editing experience with automatic persistence
 
 **Note:** The manual "Save" button provides immediate feedback with a notification, while auto-save is silent with only the visual indicator.
 
@@ -514,7 +517,11 @@ No, todos are stored locally in your workspace. If you use VS Code Settings Sync
 
 ### Can I export my todos?
 
-Yes, you can copy the contents of `.vscode/todos.json` to export your todos. The file uses a simple JSON format that's easy to parse.
+Yes! You can export your todos to Markdown format:
+- Click the "Export To Markdown" button in the sidebar title bar, or
+- Use the Command Palette: "Workspace To-do's: Export To Markdown"
+- Export creates `todos.md` with status-based sections and preserves your sort order
+- You can also copy the contents of `.vscode/todos.json` - the file uses a simple JSON format that's easy to parse
 
 ### How do I delete all todos?
 

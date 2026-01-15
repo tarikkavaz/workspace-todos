@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.4] - 2026-01-14
+## 1.0.5
+
+### Added
+- **Default Status Setting**: New configuration option `workspaceTodos.defaultStatus` to set a default status for newly created To-Do's
+  - When configured, new To-Do's automatically get the specified status label if none is selected
+  - The default status is pre-selected in the editor when creating a new To-Do
+  - Leave empty to keep the previous behavior (no status by default)
+  - Example: Set to `"backlog"` to have all new To-Do's start in the Backlog section
+
+## 1.0.4
 
 ### Added
 - **Drag-and-Drop Sorting**: Reorder todos by dragging them in the sidebar
@@ -28,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Status labels excluded from individual todo labels in export (shown in section headers)
   - Export preserves the exact order you've set via drag-and-drop
 
-## [1.0.3] - 2026-01-13
+## 1.0.3
 
 ### Added
 - **Label System**: Comprehensive label system for organizing todos
@@ -78,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Monaco Editor**: Fixed template literal syntax issue in label selection code
 - **Editor Icon**: Fixed editor tab icon not displaying (now uses light/dark theme variants)
 
-## [1.0.2] - 2026-01-12
+## 1.0.2
 
 ### Added
 - **Keyboard Shortcuts for To-Do Editor**: Configurable keyboard shortcuts for common editor actions
@@ -105,7 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Webview context is preserved when hidden to ensure reliable message handling
   - Changes are saved before the editor is hidden to prevent data loss
 
-## [1.0.1] - 2026-01-10
+## 1.0.1
 
 ### Added
 - **Monaco Editor Integration**: Added script to copy Monaco Editor files during build process

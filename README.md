@@ -354,6 +354,25 @@ Or to export to a different location:
 
 This will save `todos.md` to `exports/todos.md` instead of `.vscode/todos.md`. The directory will be created automatically if it doesn't exist.
 
+### `workspaceTodos.defaultStatus`
+
+Default status to apply to newly created To-Do's when no status is explicitly set during creation.
+
+**Default:** `""` (empty - no default status)
+
+**Example:**
+```json
+{
+  "workspaceTodos.defaultStatus": "backlog"
+}
+```
+
+This will automatically assign the `status:backlog` label to any new To-Do that doesn't have a status selected. The default status will be pre-selected in the editor when creating a new To-Do.
+
+**Valid values:** Any status value from your configuration (default: `backlog`, `planned`, `in-progress`, `blocked`, `review`, `done`).
+
+Leave empty to keep the current behavior where new To-Do's have no status by default.
+
 ### `workspaceTodos.labels`
 
 Comprehensive label system configuration for organizing todos with categories and values.

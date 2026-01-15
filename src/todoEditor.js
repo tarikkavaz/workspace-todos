@@ -447,12 +447,33 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
 /**
  * Get webview HTML content for TODO editor
  */
+/**
+ * Get the configured default status for new todos
+ * @returns {string|null} The default status value or null if not configured
+ */
+function getDefaultStatus() {
+    const config = vscode.workspace.getConfiguration('workspaceTodos');
+    const defaultStatus = config.get('defaultStatus', '');
+    if (!defaultStatus || defaultStatus.trim() === '') {
+        return null;
+    }
+    return defaultStatus.trim();
+}
+
 function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles = [], initialText = '') {
     const title = todo ? (todo.title || '') : '';
     const notes = todo ? (todo.notes || '') : (initialText || '');
     const selectedFiles = todo ? (todo.files || []) : initialFiles;
     const subtasks = todo ? (todo.subtasks || []) : [];
-    const selectedLabels = todo ? (todo.labels || []) : [];
+    
+    // For new todos, apply default status if configured
+    let selectedLabels = todo ? (todo.labels || []) : [];
+    if (!todo) {
+        const defaultStatus = getDefaultStatus();
+        if (defaultStatus) {
+            selectedLabels = [`status:${defaultStatus}`];
+        }
+    }
     
     // Load label configuration
     const availableLabels = getAvailableLabels();
@@ -1045,6 +1066,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                         // Update UI to reflect changes
                         updateLabelDropdown();
                         renderSelectedLabels();
+                        updateMarkCompleteButton();
                         markChange();
                     };
                     
@@ -1184,7 +1206,17 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             
             updateLabelDropdown();
             renderSelectedLabels();
+            updateMarkCompleteButton();
             markChange();
+        }
+        
+        // Update Mark Complete button based on status:done label
+        function updateMarkCompleteButton() {
+            const btn = document.getElementById('markCompleteBtn');
+            if (!btn) return;
+            
+            const hasStatusDone = selectedLabels.includes('status:done');
+            btn.textContent = hasStatusDone ? 'Mark as Uncompleted' : 'Mark as Complete';
         }
         
         // Auto-save state tracking
@@ -2020,6 +2052,7 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         // Initial render
         initializeLabels();
         renderFileList();
+        updateMarkCompleteButton();
     </script>
 </body>
 </html>`;

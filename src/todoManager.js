@@ -131,14 +131,37 @@ function saveTodos(data) {
 }
 
 /**
+ * Get the configured default status for new todos
+ * @returns {string|null} The default status value or null if not configured
+ */
+function getDefaultStatus() {
+    const config = vscode.workspace.getConfiguration('workspaceTodos');
+    const defaultStatus = config.get('defaultStatus', '');
+    if (!defaultStatus || defaultStatus.trim() === '') {
+        return null;
+    }
+    return defaultStatus.trim();
+}
+
+/**
  * Create a new TODO
  */
 function createTodo(data) {
     const todosData = loadTodos();
     
+    // Apply default status if no status label is set
+    let labels = data.labels || [];
+    const hasStatusLabel = labels.some(label => label.startsWith('status:'));
+    if (!hasStatusLabel) {
+        const defaultStatus = getDefaultStatus();
+        if (defaultStatus) {
+            labels = [...labels, `status:${defaultStatus}`];
+        }
+    }
+    
     // Determine section for new todo to assign appropriate order
-    const sectionType = data.labels?.find(label => label.startsWith('status:')) 
-        ? data.labels.find(label => label.startsWith('status:')).split(':')[1]
+    const sectionType = labels.find(label => label.startsWith('status:')) 
+        ? labels.find(label => label.startsWith('status:')).split(':')[1]
         : 'no-status';
     
     // Get max order in this section to append at the end
@@ -156,7 +179,7 @@ function createTodo(data) {
         notes: data.notes || '',
         files: data.files || [],
         subtasks: data.subtasks || [],
-        labels: data.labels || [],
+        labels: labels,
         completed: false,
         order: maxOrder + 1,
         createdAt: new Date().toISOString(),
@@ -177,9 +200,20 @@ function updateTodo(id, data) {
         throw new Error(`TODO with id ${id} not found`);
     }
     const todo = todosData.todos[todoIndex];
+    
+    // Sync completed state with status:done label
+    let completed = data.completed;
+    if (data.labels !== undefined) {
+        const hasStatusDone = data.labels.some(label => label === 'status:done');
+        completed = hasStatusDone;
+    } else if (completed === undefined) {
+        completed = todo.completed;
+    }
+    
     todosData.todos[todoIndex] = {
         ...todo,
         ...data,
+        completed: completed, // Sync with status:done label
         id: todo.id, // Preserve ID
         createdAt: todo.createdAt, // Preserve creation date
         order: data.order !== undefined ? data.order : todo.order, // Preserve order unless explicitly updated

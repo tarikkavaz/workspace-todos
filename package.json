@@ -2,7 +2,7 @@
   "name": "workspace-todos",
   "displayName": "Workspace To-do's",
   "description": "A VSCode extension to manage Workspace To-Do's",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "tarikkavaz",
   "engines": {
     "vscode": "^1.60.0"
@@ -152,6 +152,11 @@
           "type": "string",
           "default": ".vscode",
           "description": "Directory path (relative to workspace root) where todos.md file will be exported. Default is '.vscode'. The directory will be created if it doesn't exist."
+        },
+        "workspaceTodos.defaultStatus": {
+          "type": "string",
+          "default": "",
+          "description": "Default status to apply to newly created To-Do's when no status is set. Must be a valid status value (e.g., 'backlog', 'planned', 'in-progress'). Leave empty for no default status."
         },
         "workspaceTodos.labels": {
           "type": "object",

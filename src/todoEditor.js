@@ -1571,6 +1571,46 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
                         markChange();
                     });
                     
+                    // Allow parent scrolling when Monaco editor is at scroll boundaries
+                    // Listen in capture phase to intercept before Monaco handles it
+                    const editorWrapper = document.getElementById('notesEditorWrapper');
+                    if (editorWrapper) {
+                        editorWrapper.addEventListener('wheel', function(e) {
+                            if (!notesEditor) return;
+                            
+                            const scrollTop = notesEditor.getScrollTop();
+                            const scrollHeight = notesEditor.getScrollHeight();
+                            const containerHeight = container.offsetHeight;
+                            const maxScrollTop = Math.max(0, scrollHeight - containerHeight);
+                            
+                            // Check if we're at the boundaries
+                            const isAtTop = scrollTop <= 0;
+                            const isAtBottom = scrollTop >= maxScrollTop - 1; // -1 for floating point precision
+                            
+                            // If at boundary and trying to scroll in that direction
+                            if ((e.deltaY < 0 && isAtTop) || (e.deltaY > 0 && isAtBottom)) {
+                                // Monaco can't scroll further, prevent it from handling the event
+                                // and let it bubble to parent for scrolling
+                                e.stopImmediatePropagation();
+                                
+                                // Create a new wheel event and dispatch it to the body/parent
+                                // so the webview container can handle the scroll
+                                const newEvent = new WheelEvent('wheel', {
+                                    deltaX: e.deltaX,
+                                    deltaY: e.deltaY,
+                                    deltaZ: e.deltaZ,
+                                    deltaMode: e.deltaMode,
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                
+                                // Dispatch to document body so it bubbles up to webview container
+                                document.body.dispatchEvent(newEvent);
+                            }
+                            // Otherwise, let Monaco handle the scroll (default behavior)
+                        }, { passive: false, capture: true });
+                    }
+                    
                     // Initialize layout
                     setTimeout(() => {
                         if (notesEditor) {

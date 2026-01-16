@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.6
+
+### Fixed
+- **Monaco Editor Scrolling**: Fixed issue where scrolling the to-do window was blocked when the mouse was over the Notes (Monaco editor) section
+  - Parent window now scrolls correctly when Monaco editor is at its scroll boundaries (top or bottom)
+  - Scrolling works seamlessly when hovering over the Notes section
+
 ## 1.0.5
 
 ### Added

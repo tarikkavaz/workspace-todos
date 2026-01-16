@@ -2,7 +2,7 @@
   "name": "workspace-todos",
   "displayName": "Workspace To-do's",
   "description": "A VSCode extension to manage Workspace To-Do's",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "publisher": "tarikkavaz",
   "engines": {
     "vscode": "^1.60.0"

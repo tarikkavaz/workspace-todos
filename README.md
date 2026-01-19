@@ -1,6 +1,6 @@
 # Workspace To-do's
 
-A VS Code extension to manage workspace-specific to-do lists directly in your editor. Organize tasks, track progress, and associate files with your todos. Syncs with Trello boards. 
+A VS Code extension to manage workspace-specific to-do lists directly in your editor. Organize tasks, track progress, and associate files with your todos. Optional Trello sync is available. 
 
 ## Features
 

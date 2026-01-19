@@ -3,7 +3,7 @@ const todoManager = require('./todoManager');
 const { getRelativeFilePath } = require('./utils');
 const { createTodoWebviewPanel, getActivePanel, getPanelForTodo } = require('./todoEditor');
 const { TodosTreeDataProvider } = require('./treeView');
-const { SECRET_KEY, SECRET_TOKEN, getWorkspaceSecretKey } = require('./trelloSync');
+const { SECRET_KEY, SECRET_TOKEN, getWorkspaceSecretKey, parseBoardId } = require('./trelloSync');
 
 /**
  * Register all extension commands
@@ -64,6 +64,29 @@ function registerCommands(context, refreshTree, globalOutputChannel, treeDataPro
                     createTodoWebviewPanel(context, todo, refreshTree);
                 } catch (error) {
                     vscode.window.showErrorMessage(`Error opening editor: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.openTodoById', (todoId) => {
+                try {
+                    if (!todoId) {
+                        vscode.window.showErrorMessage('Invalid To-Do ID');
+                        return;
+                    }
+                    const todosData = todoManager.loadTodos();
+                    const todos = todosData.todos || [];
+                    const todo = todos.find(t => t.id === todoId);
+                    if (!todo) {
+                        vscode.window.showErrorMessage('To-Do not found');
+                        return;
+                    }
+                    const existingPanel = getPanelForTodo(todo.id);
+                    if (existingPanel) {
+                        existingPanel.reveal();
+                        return;
+                    }
+                    createTodoWebviewPanel(context, todo, refreshTree);
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Error opening To-Do: ${error.message}`);
                 }
             }),
             vscode.commands.registerCommand('workspaceTodos.toggleTodo', (item) => {
@@ -466,6 +489,23 @@ function registerCommands(context, refreshTree, globalOutputChannel, treeDataPro
                     await trelloSyncManager.syncNow('manual');
                 } catch (error) {
                     vscode.window.showErrorMessage(`Trello sync failed: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.trello.openBoard', async () => {
+                try {
+                    const config = vscode.workspace.getConfiguration('workspaceTodos');
+                    const boardSetting = config.get('trello.board', '');
+                    if (!boardSetting) {
+                        vscode.window.showWarningMessage('Trello board is not configured.');
+                        return;
+                    }
+                    const boardId = parseBoardId(boardSetting);
+                    const url = boardSetting.startsWith('http')
+                        ? boardSetting
+                        : `https://trello.com/b/${boardId}`;
+                    vscode.env.openExternal(vscode.Uri.parse(url));
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Failed to open Trello board: ${error.message}`);
                 }
             }),
             vscode.commands.registerCommand('workspaceTodos.trello.pruneMissing', async () => {

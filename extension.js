@@ -62,6 +62,29 @@ function activate(context) {
 
         const trelloSyncManager = createTrelloSyncManager(context, globalOutputChannel, refreshTree);
         context.subscriptions.push({ dispose: () => trelloSyncManager.dispose() });
+        const updateTrelloTitle = (syncStatus) => {
+            const baseTitle = 'Trello';
+            if (!syncStatus) {
+                trelloTreeView.title = baseTitle;
+                return;
+            }
+            if (syncStatus.state === 'syncing') {
+                trelloTreeView.title = `${baseTitle} (Syncing…)`;
+                return;
+            }
+            if (syncStatus.state === 'error') {
+                trelloTreeView.title = `${baseTitle} (Sync failed)`;
+                return;
+            }
+            if (syncStatus.lastSyncAt) {
+                trelloTreeView.title = `${baseTitle} (Synced ${formatRelativeTime(syncStatus.lastSyncAt)})`;
+                return;
+            }
+            trelloTreeView.title = baseTitle;
+        };
+        updateTrelloTitle(trelloSyncManager.getStatus());
+        trelloSyncManager.onDidChangeStatus(updateTrelloTitle);
+        trelloSyncManager.syncNow('startup');
         context.subscriptions.push(
             vscode.workspace.onDidChangeConfiguration(event => {
                 if (event.affectsConfiguration('workspaceTodos.trello')) {
@@ -78,6 +101,27 @@ function activate(context) {
         vscode.window.showErrorMessage(`Failed to register Workspace Todos view: ${error.message}`);
         isActivated = false; // Reset on error
     }
+}
+
+function formatRelativeTime(isoString) {
+    const time = new Date(isoString).getTime();
+    if (!time) {
+        return 'just now';
+    }
+    const diffMs = Date.now() - time;
+    if (diffMs < 60 * 1000) {
+        return 'just now';
+    }
+    const diffMins = Math.floor(diffMs / (60 * 1000));
+    if (diffMins < 60) {
+        return `${diffMins}m ago`;
+    }
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) {
+        return `${diffHours}h ago`;
+    }
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
 }
 
 /**

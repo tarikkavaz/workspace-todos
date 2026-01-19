@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const path = require('path');
 const todoManager = require('./todoManager');
 const { TrelloClient } = require('./trelloClient');
+const { loadLabelConfig } = require('./utils');
 
 const SECRET_KEY = 'workspaceTodos.trello.apiKey';
 const SECRET_TOKEN = 'workspaceTodos.trello.token';
@@ -151,6 +152,13 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
     let autoSyncTimer = null;
     let debounceTimer = null;
     let fileWatcher = null;
+    const statusEmitter = new vscode.EventEmitter();
+    let status = {
+        state: 'idle',
+        lastSyncAt: null,
+        error: null
+    };
+    let lastMappingWarningKey = null;
 
     async function syncNow(reason = 'manual') {
         if (isSyncing) {
@@ -176,6 +184,8 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
         }
 
         isSyncing = true;
+        status = { ...status, state: 'syncing', error: null };
+        statusEmitter.fire(status);
         outputChannel.appendLine(`[Trello] Sync started (${reason}).`);
 
         try {
@@ -189,6 +199,52 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
 
             const openLists = lists.filter(list => !list.closed);
             const listToStatus = buildListMappings(openLists, config.listMapping);
+            const statusValues = loadLabelConfig().categories.status?.values || [];
+            const mappingWarnings = [];
+            const unmappedLists = openLists.filter(list => {
+                return !(config.listMapping?.[list.id] || config.listMapping?.[list.name]);
+            });
+            if (unmappedLists.length > 0) {
+                mappingWarnings.push(`Unmapped lists: ${unmappedLists.map(list => list.name).join(', ')}`);
+            }
+            const unknownStatusValues = Object.values(config.listMapping || {})
+                .filter(value => value && !statusValues.includes(value));
+            const uniqueUnknown = unknownStatusValues.length > 0 ? [...new Set(unknownStatusValues)] : [];
+            if (uniqueUnknown.length > 0) {
+                mappingWarnings.push(`Unknown status values in listMapping: ${uniqueUnknown.join(', ')}`);
+            }
+            const mappingWarningKey = mappingWarnings.join('|');
+            if (mappingWarnings.length > 0 && mappingWarningKey !== lastMappingWarningKey) {
+                if (uniqueUnknown.length > 0) {
+                    const selection = await vscode.window.showWarningMessage(
+                        `Trello mapping uses unknown status values: ${uniqueUnknown.join(', ')}. Add them to status labels?`,
+                        'Add Status Labels',
+                        'Dismiss'
+                    );
+                    if (selection === 'Add Status Labels') {
+                        const settings = vscode.workspace.getConfiguration('workspaceTodos');
+                        const labelConfig = settings.get('labels', {});
+                        const categories = labelConfig.categories || {};
+                        const statusCategory = categories.status || {};
+                        const existingValues = statusCategory.values || [];
+                        const mergedValues = [...new Set([...existingValues, ...uniqueUnknown])];
+                        const updatedLabels = {
+                            ...labelConfig,
+                            categories: {
+                                ...categories,
+                                status: {
+                                    ...statusCategory,
+                                    values: mergedValues
+                                }
+                            }
+                        };
+                        await settings.update('labels', updatedLabels, vscode.ConfigurationTarget.Workspace);
+                    }
+                }
+                vscode.window.showWarningMessage(`Trello mapping warning: ${mappingWarnings.join(' · ')}`);
+                outputChannel.appendLine(`[Trello] Mapping warning: ${mappingWarnings.join(' · ')}`);
+                lastMappingWarningKey = mappingWarningKey;
+            }
             const memberIdToUsername = {};
             const usernameToMemberId = {};
             members.forEach(member => {
@@ -329,6 +385,7 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
                 }
             }
 
+            let conflictToastShown = false;
             for (const todo of filteredTodos) {
                 const hasTrello = !!todo.trello?.cardId;
                 const card = hasTrello ? cardsById.get(todo.trello.cardId) : null;
@@ -343,6 +400,22 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
 
                     if (localChanged && cardChanged) {
                         outputChannel.appendLine(`[Trello] Conflict on todo ${todo.id}. Using most recent update.`);
+                        if (!conflictToastShown) {
+                            conflictToastShown = true;
+                            const selection = await vscode.window.showWarningMessage(
+                                'Trello conflict detected. Choose what to open:',
+                                'Open Trello card',
+                                'Open local todo'
+                            );
+                            if (selection === 'Open Trello card') {
+                                const url = card.url || todo.trello?.cardUrl;
+                                if (url) {
+                                    vscode.env.openExternal(vscode.Uri.parse(url));
+                                }
+                            } else if (selection === 'Open local todo') {
+                                vscode.commands.executeCommand('workspaceTodos.openTodoById', todo.id);
+                            }
+                        }
                     }
 
                     if (localChanged && (!cardChanged || localUpdated > cardUpdatedAt)) {
@@ -418,10 +491,14 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
                 refreshTree();
             }
 
+            status = { ...status, state: 'success', lastSyncAt: nowIso, error: null };
+            statusEmitter.fire(status);
             outputChannel.appendLine(`[Trello] Sync complete.`);
         } catch (error) {
             outputChannel.appendLine(`[Trello] Sync failed: ${error.message}`);
             vscode.window.showWarningMessage(`Trello sync failed: ${error.message}`);
+            status = { ...status, state: 'error', error: error.message };
+            statusEmitter.fire(status);
         } finally {
             isSyncing = false;
         }
@@ -547,7 +624,9 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
         syncNow,
         pruneMissingCards,
         dispose,
-        filterAssignedOnly
+        filterAssignedOnly,
+        onDidChangeStatus: statusEmitter.event,
+        getStatus: () => status
     };
 }
 

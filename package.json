@@ -33,6 +33,7 @@
     "onCommand:workspaceTodos.trello.setCredentials",
     "onCommand:workspaceTodos.trello.clearCredentials",
     "onCommand:workspaceTodos.trello.syncNow",
+    "onCommand:workspaceTodos.trello.openBoard",
     "onCommand:workspaceTodos.trello.pruneMissing"
   ],
   "main": "./extension.js",
@@ -64,7 +65,7 @@
           "id": "workspaceTodosTrelloView",
           "name": "Trello",
           "icon": "media/trello-icon-light.svg",
-          "when": "true"
+          "when": "config.workspaceTodos.trello.enabled"
         }
       ]
     },
@@ -163,6 +164,11 @@
         "command": "workspaceTodos.trello.syncNow",
         "title": "Trello: Sync Now",
         "icon": "$(sync)"
+      },
+      {
+        "command": "workspaceTodos.trello.openBoard",
+        "title": "Trello: Open Board",
+        "icon": "$(link-external)"
       },
       {
         "command": "workspaceTodos.trello.pruneMissing",
@@ -323,6 +329,11 @@
         },
         {
           "command": "workspaceTodos.trello.syncNow",
+          "when": "view == workspaceTodosTrelloView",
+          "group": "navigation"
+        },
+        {
+          "command": "workspaceTodos.trello.openBoard",
           "when": "view == workspaceTodosTrelloView",
           "group": "navigation"
         },

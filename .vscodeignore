@@ -10,4 +10,3 @@ node_modules/**
 **/*.map
 **/*.ts
 !**/*.js.map
-.vscode/todos.json

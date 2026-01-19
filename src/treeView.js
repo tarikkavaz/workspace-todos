@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const path = require('path');
 const todoManager = require('./todoManager');
 const { loadLabelConfig } = require('./utils');
+const { getCredentials } = require('./trelloSync');
 
 function isTrelloTodo(todo) {
     return !!todo?.trello?.cardId;
@@ -1085,7 +1086,7 @@ class TrelloTodosTreeDataProvider {
         return todos.sort((a, b) => (a.order || 0) - (b.order || 0));
     }
 
-    getChildren(element) {
+    async getChildren(element) {
         try {
             const config = vscode.workspace.getConfiguration('workspaceTodos');
             const trelloEnabled = config.get('trello.enabled', false);
@@ -1093,11 +1094,31 @@ class TrelloTodosTreeDataProvider {
                 return [new TodoTreeItem('Trello sync is disabled. Enable it in settings.', null, true)];
             }
 
+            const { apiKey, token } = await getCredentials(this._context);
+            const credentialsMissing = !apiKey || !token;
+
             const todosData = todoManager.loadTodos();
             const trelloTodos = (todosData.todos || []).filter(todo => isTrelloTodo(todo) && shouldIncludeTrelloTodo(todo));
 
             if (!element) {
                 const rootItems = [];
+
+                rootItems.push(new QuickActionsTreeItem());
+
+                if (credentialsMissing) {
+                    rootItems.push(new InfoTreeItem(
+                        'Trello credentials missing. Set credentials to sync.',
+                        'workspaceTodos.trello.setCredentials',
+                        'key'
+                    ));
+                    rootItems.push(new InfoTreeItem(
+                        'Open Trello settings',
+                        'workbench.action.openSettings',
+                        'settings-gear',
+                        ['workspaceTodos.trello']
+                    ));
+                    return rootItems;
+                }
 
                 if (trelloTodos.length > 0) {
                     const usedLabels = new Set();
@@ -1117,7 +1138,11 @@ class TrelloTodosTreeDataProvider {
                 }
 
                 if (trelloTodos.length === 0) {
-                    rootItems.push(new TodoTreeItem('No Trello cards found.', null, true));
+                    rootItems.push(new InfoTreeItem(
+                        'No Trello cards found. Try syncing or add cards on Trello.',
+                        'workspaceTodos.trello.syncNow',
+                        'sync'
+                    ));
                     return rootItems;
                 }
 
@@ -1211,11 +1236,54 @@ class TrelloTodosTreeDataProvider {
             } else if (element instanceof SectionTreeItem) {
                 const todos = this._getTodosForSection(element.sectionType);
                 return todos.map(todo => new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false));
+            } else if (element instanceof QuickActionsTreeItem) {
+                return [
+                    new ActionTreeItem('Sync Now', 'workspaceTodos.trello.syncNow', 'sync'),
+                    new ActionTreeItem('Open Board', 'workspaceTodos.trello.openBoard', 'link-external'),
+                    new ActionTreeItem('Set Credentials', 'workspaceTodos.trello.setCredentials', 'key'),
+                    new ActionTreeItem('Prune Missing Cards', 'workspaceTodos.trello.pruneMissing', 'trash')
+                ];
             }
 
             return [];
         } catch (error) {
             return [new TodoTreeItem('Error loading Trello cards', null, true)];
+        }
+    }
+}
+
+class QuickActionsTreeItem extends vscode.TreeItem {
+    constructor() {
+        super('Quick Actions', vscode.TreeItemCollapsibleState.Collapsed);
+        this.contextValue = 'trelloQuickActions';
+        this.iconPath = new vscode.ThemeIcon('run-all');
+    }
+}
+
+class ActionTreeItem extends vscode.TreeItem {
+    constructor(label, commandId, icon, args = []) {
+        super(label, vscode.TreeItemCollapsibleState.None);
+        this.contextValue = 'trelloAction';
+        this.iconPath = new vscode.ThemeIcon(icon);
+        this.command = {
+            command: commandId,
+            title: label,
+            arguments: args
+        };
+    }
+}
+
+class InfoTreeItem extends vscode.TreeItem {
+    constructor(label, commandId, icon, args = []) {
+        super(label, vscode.TreeItemCollapsibleState.None);
+        this.contextValue = 'trelloInfo';
+        this.iconPath = new vscode.ThemeIcon(icon);
+        if (commandId) {
+            this.command = {
+                command: commandId,
+                title: label,
+                arguments: args
+            };
         }
     }
 }

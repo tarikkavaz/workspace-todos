@@ -3,5 +3,5 @@ _tools
 *.vsix
 .DS_Store
 .cursor/
-.vscode/todos.*
+.vscode/
 lib/monaco-editor/

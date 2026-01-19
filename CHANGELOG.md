@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.0
+
+### Added
+- **Trello Two-Way Sync**: Optional Trello integration with per-workspace settings
+  - Separate Trello view for active cards and merged Completed view for done cards
+  - List-to-status mapping and optional label mapping
+  - Assigned-only filtering and per-workspace credentials (SecretStorage)
+  - Manual sync, background sync, and prune-missing-cards command
+  - Trello card link with themed icon in the editor
+
+
 ## 1.0.6
 
 ### Fixed

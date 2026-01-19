@@ -1,6 +1,34 @@
 const vscode = require('vscode');
+const path = require('path');
 const todoManager = require('./todoManager');
 const { loadLabelConfig } = require('./utils');
+
+function isTrelloTodo(todo) {
+    return !!todo?.trello?.cardId;
+}
+
+function getTrelloFilterConfig() {
+    const config = vscode.workspace.getConfiguration('workspaceTodos');
+    return {
+        assignedOnly: config.get('trello.assignedOnly', true),
+        assignedUsername: config.get('trello.assignedUsername', '')
+    };
+}
+
+function shouldIncludeTrelloTodo(todo) {
+    const { assignedOnly, assignedUsername } = getTrelloFilterConfig();
+    if (!assignedOnly) return true;
+    if (!assignedUsername) return false;
+    const assignees = todo.trello?.assignees || [];
+    return assignees.includes(assignedUsername);
+}
+
+function getTrelloIconPath(context) {
+    return {
+        light: vscode.Uri.file(path.join(context.extensionPath, 'media', 'trello-icon-light.svg')),
+        dark: vscode.Uri.file(path.join(context.extensionPath, 'media', 'trello-icon-dark.svg'))
+    };
+}
 
 /**
  * Tree data provider for todos in sidebar
@@ -180,6 +208,8 @@ class TodosTreeDataProvider {
     _getTodosForSection(sectionType) {
         const todosData = todoManager.loadTodos();
         let todos = todosData.todos || [];
+        // Exclude Trello-synced todos from local view
+        todos = todos.filter(todo => !isTrelloTodo(todo));
 
         // Filter out completed todos (they go in "Completed" view)
         todos = todos.filter(todo => {
@@ -238,16 +268,17 @@ class TodosTreeDataProvider {
         try {
             const todosData = todoManager.loadTodos();
             const todos = todosData.todos || [];
+            const localTodos = todos.filter(todo => !isTrelloTodo(todo));
             
             if (!element) {
                 // Root level - return filter section and section headers grouped by status
                 const rootItems = [];
                 
                 // Add filter section if there are todos (exclude status:done since done todos are in separate view)
-                if (todos.length > 0) {
+                if (localTodos.length > 0) {
                     // Get all used labels from active todos (excluding status:done)
                     const usedLabels = new Set();
-                    todos.forEach(todo => {
+                    localTodos.forEach(todo => {
                         if (todo.labels && todo.labels.length > 0) {
                             todo.labels.forEach(label => {
                                 // Exclude status:done label from filter options (done todos are in separate view)
@@ -263,13 +294,13 @@ class TodosTreeDataProvider {
                     }
                 }
                 
-                if (todos.length === 0) {
+                if (localTodos.length === 0) {
                     rootItems.push(new TodoTreeItem('No To-Dos yet. Click + to add one.', null, true));
                     return rootItems;
                 }
                 
                 // Apply label filter if any labels are selected
-                let filteredTodos = todos;
+                let filteredTodos = localTodos;
                 if (this._selectedFilterLabels.size > 0) {
                     filteredTodos = todos.filter(todo => {
                         if (!todo.labels || todo.labels.length === 0) return false;
@@ -382,7 +413,7 @@ class TodosTreeDataProvider {
             } else if (element instanceof SectionTreeItem) {
                 // Return todos for this section (already filtered at root level)
                 const todosData = todoManager.loadTodos();
-                let todos = todosData.todos || [];
+                let todos = (todosData.todos || []).filter(todo => !isTrelloTodo(todo));
                 
                 // IMPORTANT: First filter out completed todos (they go in "Completed" view)
                 todos = todos.filter(todo => {
@@ -572,7 +603,7 @@ class TodoTreeItem extends vscode.TreeItem {
         if (todo.files && todo.files.length > 0) {
             descParts.push(`${todo.files.length} file(s)`);
         }
-        
+
         this.description = descParts.join(' • ') || '';
         
         // Set icon based on completion status (check icon for completed, circle for active)
@@ -755,6 +786,11 @@ class CompletedTodosTreeDataProvider {
             return false;
         });
 
+        // Apply Trello assigned-only filter for Trello todos
+        completedTodos = completedTodos.filter(todo => {
+            return !isTrelloTodo(todo) || shouldIncludeTrelloTodo(todo);
+        });
+
         // Apply label filter if any labels are selected
         if (this._selectedFilterLabels.size > 0) {
             completedTodos = completedTodos.filter(todo => {
@@ -793,6 +829,11 @@ class CompletedTodosTreeDataProvider {
                     }
                     return false;
                 });
+
+                // Apply Trello assigned-only filter for Trello todos
+                completedTodos = completedTodos.filter(todo => {
+                    return !isTrelloTodo(todo) || shouldIncludeTrelloTodo(todo);
+                });
                 
                 // Add filter section if there are completed todos
                 if (completedTodos.length > 0) {
@@ -830,10 +871,15 @@ class CompletedTodosTreeDataProvider {
                 }
                 
                 // Return completed todos, sorted by order
+                const trelloIcon = getTrelloIconPath(this._context);
                 completedTodos
                     .sort((a, b) => (a.order || 0) - (b.order || 0))
                     .forEach(todo => {
-                        rootItems.push(new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false));
+                        const item = new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false);
+                        if (isTrelloTodo(todo)) {
+                            item.iconPath = trelloIcon;
+                        }
+                        rootItems.push(item);
                     });
                 
                 return rootItems;
@@ -864,9 +910,320 @@ class CompletedTodosTreeDataProvider {
     }
 }
 
+/**
+ * Tree data provider for Trello-synced todos only (active)
+ */
+class TrelloTodosTreeDataProvider {
+    constructor(context, outputChannel) {
+        this._context = context;
+        this._outputChannel = outputChannel;
+        this._onDidChangeTreeData = new vscode.EventEmitter();
+        this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+        this._selectedFilterLabels = new Set();
+    }
+
+    refresh() {
+        this._onDidChangeTreeData.fire();
+    }
+
+    getSelectedFilterLabels() {
+        return Array.from(this._selectedFilterLabels);
+    }
+
+    toggleFilterLabel(label) {
+        if (this._selectedFilterLabels.has(label)) {
+            this._selectedFilterLabels.delete(label);
+        } else {
+            this._selectedFilterLabels.add(label);
+        }
+        this.refresh();
+    }
+
+    clearFilters() {
+        this._selectedFilterLabels.clear();
+        this.refresh();
+    }
+
+    getTreeItem(element) {
+        return element;
+    }
+
+    // Drag and Drop support
+    get dragMimeTypes() {
+        return ['application/vnd.code.tree.workspaceTodosTrelloView'];
+    }
+
+    get dropMimeTypes() {
+        return ['application/vnd.code.tree.workspaceTodosTrelloView'];
+    }
+
+    async handleDrag(source, dataTransfer, token) {
+        if (token.isCancellationRequested) {
+            return;
+        }
+
+        const sources = Array.isArray(source) ? source : [source];
+        const draggedTodoIds = [];
+
+        for (const item of sources) {
+            let draggedTodoId = null;
+            if (item instanceof TodoTreeItem) {
+                draggedTodoId = item.todoId;
+            } else if (item && item.todoId) {
+                draggedTodoId = item.todoId;
+            } else if (item && item.todo && item.todo.id) {
+                draggedTodoId = item.todo.id;
+            }
+
+            if (draggedTodoId) {
+                draggedTodoIds.push(draggedTodoId);
+            }
+        }
+
+        if (draggedTodoIds.length === 0) {
+            return;
+        }
+
+        const data = JSON.stringify(draggedTodoIds);
+        dataTransfer.set('application/vnd.code.tree.workspaceTodosTrelloView', new vscode.DataTransferItem(data));
+    }
+
+    async handleDrop(target, dataTransfer, token) {
+        if (token.isCancellationRequested) {
+            return;
+        }
+
+        try {
+            const transferItem = dataTransfer.get('application/vnd.code.tree.workspaceTodosTrelloView');
+            if (!transferItem) {
+                return;
+            }
+
+            const draggedTodoIds = JSON.parse(await transferItem.asString());
+            if (!Array.isArray(draggedTodoIds) || draggedTodoIds.length === 0) {
+                return;
+            }
+
+            let targetSection = null;
+            let targetIndex = 0;
+
+            if (target instanceof SectionTreeItem) {
+                targetSection = target.sectionType;
+                const todosInSection = this._getTodosForSection(targetSection);
+                targetIndex = todosInSection.length;
+            } else if (target instanceof TodoTreeItem && target.todoId) {
+                const targetTodo = target.todo;
+                targetSection = todoManager.getTodoSectionType(targetTodo);
+                const todosInSection = this._getTodosForSection(targetSection);
+                const targetTodoIndex = todosInSection.findIndex(t => t.id === targetTodo.id);
+                targetIndex = targetTodoIndex >= 0 ? targetTodoIndex : todosInSection.length;
+            } else {
+                return;
+            }
+
+            const todosData = todoManager.loadTodos();
+            const firstDraggedTodo = todosData.todos.find(t => draggedTodoIds.includes(t.id));
+            const sourceSection = firstDraggedTodo ? todoManager.getTodoSectionType(firstDraggedTodo) : null;
+
+            todoManager.reorderTodos(draggedTodoIds, targetIndex, targetSection, sourceSection);
+            this.refresh();
+        } catch (error) {
+            this._outputChannel.appendLine(`Error handling Trello drop: ${error.message}`);
+            vscode.window.showErrorMessage(`Error reordering Trello todos: ${error.message}`);
+        }
+    }
+
+    _getTodosForSection(sectionType) {
+        const todosData = todoManager.loadTodos();
+        let todos = (todosData.todos || []).filter(todo => isTrelloTodo(todo) && shouldIncludeTrelloTodo(todo));
+
+        // Filter out completed todos
+        todos = todos.filter(todo => {
+            const statusLabel = todo.labels?.find(label => label.startsWith('status:'));
+            if (statusLabel) {
+                const statusValue = statusLabel.split(':')[1];
+                if (statusValue === 'done') {
+                    return false;
+                }
+            }
+            if (todo.completed === true) {
+                return false;
+            }
+            return true;
+        });
+
+        if (this._selectedFilterLabels.size > 0) {
+            todos = todos.filter(todo => {
+                if (!todo.labels || todo.labels.length === 0) return false;
+                return Array.from(this._selectedFilterLabels).some(filterLabel =>
+                    todo.labels.includes(filterLabel)
+                );
+            });
+        }
+
+        if (sectionType === 'no-status') {
+            todos = todos.filter(t => {
+                const statusLabel = t.labels?.find(label => label.startsWith('status:'));
+                if (statusLabel) {
+                    const statusValue = statusLabel.split(':')[1];
+                    if (statusValue === 'done') return false;
+                }
+                return !t.labels || !t.labels.some(label => label.startsWith('status:'));
+            });
+        } else {
+            todos = todos.filter(t => {
+                const statusLabel = t.labels?.find(label => label.startsWith('status:'));
+                if (statusLabel) {
+                    const statusValue = statusLabel.split(':')[1];
+                    if (statusValue === 'done') return false;
+                    return statusValue === sectionType;
+                }
+                return false;
+            });
+        }
+
+        return todos.sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+
+    getChildren(element) {
+        try {
+            const config = vscode.workspace.getConfiguration('workspaceTodos');
+            const trelloEnabled = config.get('trello.enabled', false);
+            if (!trelloEnabled) {
+                return [new TodoTreeItem('Trello sync is disabled. Enable it in settings.', null, true)];
+            }
+
+            const todosData = todoManager.loadTodos();
+            const trelloTodos = (todosData.todos || []).filter(todo => isTrelloTodo(todo) && shouldIncludeTrelloTodo(todo));
+
+            if (!element) {
+                const rootItems = [];
+
+                if (trelloTodos.length > 0) {
+                    const usedLabels = new Set();
+                    trelloTodos.forEach(todo => {
+                        if (todo.labels && todo.labels.length > 0) {
+                            todo.labels.forEach(label => {
+                                if (label !== 'status:done') {
+                                    usedLabels.add(label);
+                                }
+                            });
+                        }
+                    });
+
+                    if (usedLabels.size > 0) {
+                        rootItems.push(new FilterTreeItem(Array.from(usedLabels), this));
+                    }
+                }
+
+                if (trelloTodos.length === 0) {
+                    rootItems.push(new TodoTreeItem('No Trello cards found.', null, true));
+                    return rootItems;
+                }
+
+                let filteredTodos = trelloTodos;
+                if (this._selectedFilterLabels.size > 0) {
+                    filteredTodos = trelloTodos.filter(todo => {
+                        if (!todo.labels || todo.labels.length === 0) return false;
+                        return Array.from(this._selectedFilterLabels).some(filterLabel =>
+                            todo.labels.includes(filterLabel)
+                        );
+                    });
+                }
+
+                if (filteredTodos.length === 0 && this._selectedFilterLabels.size > 0) {
+                    rootItems.push(new TodoTreeItem('No Trello cards match the selected filters.', null, true));
+                    return rootItems;
+                }
+
+                const labelConfig = loadLabelConfig();
+                const statusValues = labelConfig.categories.status?.values || [];
+
+                const activeTodos = filteredTodos.filter(todo => {
+                    const statusLabel = todo.labels?.find(label => label.startsWith('status:'));
+                    if (statusLabel) {
+                        const statusValue = statusLabel.split(':')[1];
+                        if (statusValue === 'done') {
+                            return false;
+                        }
+                    }
+                    if (todo.completed === true) {
+                        return false;
+                    }
+                    return true;
+                });
+
+                const todosByStatus = {};
+                const todosWithoutStatus = [];
+
+                activeTodos.forEach(todo => {
+                    const statusLabel = todo.labels?.find(label => label.startsWith('status:'));
+                    if (statusLabel) {
+                        const statusValue = statusLabel.split(':')[1];
+                        if (!todosByStatus[statusValue]) {
+                            todosByStatus[statusValue] = [];
+                        }
+                        todosByStatus[statusValue].push(todo);
+                    } else {
+                        todosWithoutStatus.push(todo);
+                    }
+                });
+
+                if (todosByStatus['in-progress'] && todosByStatus['in-progress'].length > 0) {
+                    rootItems.push(new SectionTreeItem('In Progress', todosByStatus['in-progress'].length, 'in-progress'));
+                }
+
+                statusValues.forEach(statusValue => {
+                    if (statusValue === 'done' || statusValue === 'in-progress') {
+                        return;
+                    }
+                    if (todosByStatus[statusValue] && todosByStatus[statusValue].length > 0) {
+                        rootItems.push(new SectionTreeItem(
+                            statusValue.charAt(0).toUpperCase() + statusValue.slice(1).replace(/-/g, ' '),
+                            todosByStatus[statusValue].length,
+                            statusValue
+                        ));
+                    }
+                });
+
+                if (todosWithoutStatus.length > 0) {
+                    rootItems.push(new SectionTreeItem('No Status', todosWithoutStatus.length, 'no-status'));
+                }
+
+                return rootItems;
+            } else if (element instanceof FilterTreeItem) {
+                const labels = element.getFilterLabels();
+                const sortedLabels = labels.sort((a, b) => {
+                    const [catA, valA] = a.split(':');
+                    const [catB, valB] = b.split(':');
+                    if (catA !== catB) {
+                        return catA.localeCompare(catB);
+                    }
+                    return valA.localeCompare(valB);
+                });
+
+                return sortedLabels.map(label => {
+                    const [category, value] = label.split(':');
+                    const displayName = value || label;
+                    const isSelected = this._selectedFilterLabels.has(label);
+                    return new FilterLabelTreeItem(displayName, label, isSelected, this);
+                });
+            } else if (element instanceof SectionTreeItem) {
+                const todos = this._getTodosForSection(element.sectionType);
+                return todos.map(todo => new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false));
+            }
+
+            return [];
+        } catch (error) {
+            return [new TodoTreeItem('Error loading Trello cards', null, true)];
+        }
+    }
+}
+
 module.exports = {
     TodosTreeDataProvider,
     CompletedTodosTreeDataProvider,
+    TrelloTodosTreeDataProvider,
     SectionTreeItem,
     TodoTreeItem,
     FilterTreeItem,

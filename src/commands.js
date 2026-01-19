@@ -3,6 +3,7 @@ const todoManager = require('./todoManager');
 const { getRelativeFilePath } = require('./utils');
 const { createTodoWebviewPanel, getActivePanel, getPanelForTodo } = require('./todoEditor');
 const { TodosTreeDataProvider } = require('./treeView');
+const { SECRET_KEY, SECRET_TOKEN, getWorkspaceSecretKey } = require('./trelloSync');
 
 /**
  * Register all extension commands
@@ -11,7 +12,7 @@ const { TodosTreeDataProvider } = require('./treeView');
  * @param {vscode.OutputChannel} globalOutputChannel - Output channel for logging
  * @param {TodosTreeDataProvider} treeDataProvider - Tree data provider for filter commands
  */
-function registerCommands(context, refreshTree, globalOutputChannel, treeDataProvider, completedTreeDataProvider) {
+function registerCommands(context, refreshTree, globalOutputChannel, treeDataProvider, completedTreeDataProvider, trelloSyncManager) {
     try {
         context.subscriptions.push(
             vscode.commands.registerCommand('workspaceTodos.refresh', refreshTree),
@@ -419,6 +420,63 @@ function registerCommands(context, refreshTree, globalOutputChannel, treeDataPro
                     }
                 } catch (error) {
                     globalOutputChannel.appendLine(`Error clearing filters: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.trello.setCredentials', async () => {
+                try {
+                    const apiKey = await vscode.window.showInputBox({
+                        prompt: 'Enter your Trello API key',
+                        ignoreFocusOut: true
+                    });
+                    if (!apiKey) {
+                        return;
+                    }
+                    const token = await vscode.window.showInputBox({
+                        prompt: 'Enter your Trello token',
+                        ignoreFocusOut: true,
+                        password: true
+                    });
+                    if (!token) {
+                        return;
+                    }
+                    await context.secrets.store(getWorkspaceSecretKey(SECRET_KEY), apiKey.trim());
+                    await context.secrets.store(getWorkspaceSecretKey(SECRET_TOKEN), token.trim());
+                    vscode.window.showInformationMessage('Trello credentials saved.');
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Failed to save Trello credentials: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.trello.clearCredentials', async () => {
+                try {
+                    await context.secrets.delete(getWorkspaceSecretKey(SECRET_KEY));
+                    await context.secrets.delete(getWorkspaceSecretKey(SECRET_TOKEN));
+                    await context.secrets.delete(SECRET_KEY);
+                    await context.secrets.delete(SECRET_TOKEN);
+                    vscode.window.showInformationMessage('Trello credentials cleared for this workspace.');
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Failed to clear Trello credentials: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.trello.syncNow', async () => {
+                try {
+                    if (!trelloSyncManager) {
+                        vscode.window.showWarningMessage('Trello sync is not initialized.');
+                        return;
+                    }
+                    await trelloSyncManager.syncNow('manual');
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Trello sync failed: ${error.message}`);
+                }
+            }),
+            vscode.commands.registerCommand('workspaceTodos.trello.pruneMissing', async () => {
+                try {
+                    if (!trelloSyncManager) {
+                        vscode.window.showWarningMessage('Trello sync is not initialized.');
+                        return;
+                    }
+                    await trelloSyncManager.pruneMissingCards('manual');
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Trello prune failed: ${error.message}`);
                 }
             })
         );

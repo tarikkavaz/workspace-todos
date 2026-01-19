@@ -704,5 +704,6 @@ module.exports = {
     exportTodosToMarkdown,
     getTodoSectionType,
     getTodosBySection,
-    reorderTodos
+    reorderTodos,
+    getTodosFilePath
 };

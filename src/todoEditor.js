@@ -156,6 +156,15 @@ function createTodoWebviewPanel(context, todo, onSaveCallback, initialFiles = []
     panel.webview.onDidReceiveMessage(
         async message => {
             switch (message.command) {
+                case 'openExternal':
+                    try {
+                        if (message.url) {
+                            vscode.env.openExternal(vscode.Uri.parse(message.url));
+                        }
+                    } catch (error) {
+                        console.error('[WorkspaceTodos] Failed to open link:', error);
+                    }
+                    break;
                 case 'save':
                     try {
                         if (currentTodo) {
@@ -485,6 +494,12 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
     );
     const monacoBaseUri = webview.asWebviewUri(
         vscode.Uri.joinPath(extensionUri, 'lib', 'monaco-editor', 'min', 'vs')
+    );
+    const trelloIconLightUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(extensionUri, 'media', 'trello-icon-light.svg')
+    );
+    const trelloIconDarkUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(extensionUri, 'media', 'trello-icon-dark.svg')
     );
     
     return `<!DOCTYPE html>
@@ -901,6 +916,39 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         .label-badge-remove:hover {
             opacity: 1;
         }
+        .trello-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 12px 0 20px 0;
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 6px;
+            background-color: var(--vscode-editorWidget-background);
+        }
+        .trello-icon {
+            width: 18px;
+            height: 18px;
+        }
+        .trello-icon-dark {
+            display: none;
+        }
+        @media (prefers-color-scheme: dark) {
+            .trello-icon-light {
+                display: none;
+            }
+            .trello-icon-dark {
+                display: inline-block;
+            }
+        }
+        .trello-link {
+            color: var(--vscode-textLink-foreground);
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .trello-link:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -914,6 +962,13 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
             </div>
         </div>
     </div>
+    ${todo?.trello?.cardUrl ? `
+    <div class="trello-banner">
+        <img src="${trelloIconLightUri}" alt="Trello" class="trello-icon trello-icon-light">
+        <img src="${trelloIconDarkUri}" alt="Trello" class="trello-icon trello-icon-dark">
+        <a href="#" class="trello-link" id="trelloCardLink" data-url="${escapeHtml(todo.trello.cardUrl)}">Open Trello card</a>
+    </div>
+    ` : ''}
     <form id="todoForm">
         <div class="form-group">
             <label class="form-label" for="todoTitle">Title</label>
@@ -995,6 +1050,16 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         const todoId = ${todo && todo.id ? JSON.stringify(todo.id) : null};
         const todoTitle = ${todo ? JSON.stringify(todo.title || todo.notes || 'Untitled') : null};
         const todoCompleted = ${todo ? (todo.completed ? 'true' : 'false') : 'false'};
+        const trelloCardLink = document.getElementById('trelloCardLink');
+        if (trelloCardLink) {
+            trelloCardLink.addEventListener('click', event => {
+                event.preventDefault();
+                const url = trelloCardLink.dataset.url;
+                if (url) {
+                    vscode.postMessage({ command: 'openExternal', url });
+                }
+            });
+        }
         
         // Initialize label dropdown
         function initializeLabels() {

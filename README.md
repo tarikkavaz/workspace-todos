@@ -2,7 +2,6 @@
 
 A VS Code extension to manage workspace-specific to-do lists directly in your editor. Organize tasks, track progress, and associate files with your todos.
 
-
 ## Features
 
 - **Workspace-Specific**: Todos are stored per workspace in `.vscode/todos.json`
@@ -24,22 +23,21 @@ A VS Code extension to manage workspace-specific to-do lists directly in your ed
 - **Keyboard Shortcuts**: Configurable keyboard shortcuts for save, mark complete, delete, and create new todo
 - **Editor Persistence**: Open todo editors automatically restore when workspace is reopened
 - **Smart Editor Focus**: Clicking a todo in sidebar focuses existing editor instead of creating duplicate
-
+- **Trello Sync (Optional)**: Two-way sync with Trello boards, per-workspace credentials, and list/status mapping
 
 ### Edit a To-Do
 
 ![Workspace To-do's](./screenshot01.png)
 
-
 ### Add text via Context Menu to a To-Do
 
 ![Workspace To-do's](./screenshot02.png)
-
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Trello Setup](#trello-setup)
 - [Usage](#usage)
   - [Sidebar View](#sidebar-view)
   - [Creating Todos](#creating-todos)
@@ -102,6 +100,37 @@ You can also install directly from the [Open VSX Registry](https://open-vsx.org/
 
 Your todos are automatically saved to `.vscode/todos.json` in your workspace.
 
+## Trello Setup
+
+Follow these steps to generate a Trello API key and token, then connect the extension.
+
+### 1) Get your API key
+
+1. Open: <https://trello.com/app-key>
+2. Copy the **API key** shown on that page.
+
+### 2) Generate a token
+
+1. Open the authorize URL below in your browser (replace `YOUR_KEY` with your API key):
+
+https://trello.com/1/authorize?expiration=never&name=WorkspaceTodos&scope=read,write&response_type=token&key=YOUR_KEY
+
+2. Approve the request.
+3. Copy the **token** shown after approval.
+
+### 3) Store credentials in VS Code
+
+1. Run **Trello: Set Credentials**.
+2. Paste:
+   - **API key** from step 1
+   - **Token** from step 2
+
+### Notes
+
+- You do **not** use the API **secret** for this extension.
+- The key+token are **per Trello account**, not per board.
+- One token works for **any board that account can access** (member/invited).
+
 ## Usage
 
 ### Sidebar View
@@ -109,6 +138,7 @@ Your todos are automatically saved to `.vscode/todos.json` in your workspace.
 The extension adds a new view to the activity bar sidebar with two resizable sections. Click the "Workspace To-do's" icon to see:
 
 #### To-do's Section (Top)
+
 - **Filter Labels**: Filter todos by selecting labels from the filter panel
 - **Status-Grouped Sections**: Active todos organized by status labels
   - "In Progress" appears first
@@ -123,11 +153,19 @@ The extension adds a new view to the activity bar sidebar with two resizable sec
   - Checkmark icon for completed todos, circle for active
   - Number of associated files (if any)
 
+#### Trello Section (Middle)
+
+- Separate Trello view for active Trello cards
+- Uses Trello list → status mapping from settings
+- Filter labels are independent from local todos
+
 #### Completed Section (Bottom)
+
 - All completed/done todos in a separate resizable section
 - Independent filter system
 - **Drag-and-Drop Sorting**: Drag completed todos to reorder them
 - Checkmark icon to mark todos as uncompleted
+- Trello-completed items display a Trello icon
 
 You can resize the sections by dragging the divider between them.
 
@@ -137,6 +175,7 @@ You can resize the sections by dragging the divider between them.
 2. Use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and select "Workspace To-do's: Add To-Do"
 
 In the editor panel:
+
 - Enter a **Title** (required)
 - Add **Notes** using the Markdown editor (optional)
 - Select **Labels** from categories (Priority, Type, Status, Quality, Scope)
@@ -156,6 +195,7 @@ In the editor panel:
 - The sidebar automatically refreshes when you change labels
 
 **Marking Todos as Complete/Uncomplete:**
+
 - When editing a todo, use the "Mark as Complete" button in the editor header
 - The button text automatically changes to "Mark as Uncompleted" for completed todos
 - Clicking the button toggles the completion status without closing the editor
@@ -178,15 +218,18 @@ The extension automatically saves your changes to prevent data loss:
 ### Managing Files
 
 **Adding Files:**
+
 - Click "+ Add File" in the todo editor to browse and select files
 - Or right-click a file in Explorer and select:
   - "Add File to To-Do - Existing" to add to an existing todo
   - "Add File to To-Do - Create new" to create a new todo with that file
 
 **Opening Files:**
+
 - Click on any file name in the todo editor to open it in VS Code
 
 **Removing Files:**
+
 - Click the `×` button next to a file in the todo editor
 
 ### Subtasks
@@ -203,6 +246,7 @@ Break down your todos into smaller, trackable subtasks:
 The extension supports a comprehensive label system for organizing your todos:
 
 **Default Categories:**
+
 - **Priority**: blocker, critical, high, medium, low, trivial
 - **Type**: bug, feature, enhancement, refactor, documentation, test
 - **Quality/Concern Area**: performance, security, accessibility, usability, maintainability
@@ -210,12 +254,14 @@ The extension supports a comprehensive label system for organizing your todos:
 - **Scope**: frontend, backend, api, infra, ci, docs
 
 **Features:**
+
 - **One per Category**: Radio button selection ensures only one value per category
 - **Custom Categories**: Add your own categories through settings
 - **Hide Options**: Hide default categories or specific labels you don't use
 - **Filtering**: Filter todos by labels in both active and completed sections
 
 **Selecting Labels:**
+
 1. In the todo editor, click "Select labels..." dropdown
 2. Categories are grouped together
 3. Status category appears first for quick access
@@ -228,14 +274,17 @@ See [Configuration](#configuration) section for label settings.
 ### Context Menu Actions
 
 **From Explorer (File Context Menu):**
+
 - **Add File to To-Do - Existing**: Add the selected file(s) to an existing todo
 - **Add File to To-Do - Create new**: Create a new todo with the selected file(s)
 
 **From Editor (Text Selection):**
+
 - **Add Text to To-Do - Existing**: Add the selected text to an existing todo's notes
 - **Add Text to To-Do - Create new**: Create a new todo with the selected text
 
 When adding text, the extension automatically:
+
 - Includes the file path and line number
 - Formats the text in a code block
 - Adds the file to the todo's associated files
@@ -248,16 +297,19 @@ The extension provides keyboard shortcuts for quick access to common actions. Al
 
 These shortcuts only work when a To-Do is open in the editor:
 
-- **`Ctrl+S`** / **`Cmd+S`**: Save the current To-Do
+- `Ctrl+S` / `Cmd+S`: Save the current To-Do
+
   - Saves all changes (title, notes, files, subtasks)
   - Works for both new and existing todos
 
-- **`Ctrl+Enter`** / **`Cmd+Enter`**: Mark To-Do as Complete/Uncompleted
+- `Ctrl+Enter` / `Cmd+Enter`: Mark To-Do as Complete/Uncompleted
+
   - Toggles the completion status of the current todo
   - Button text and success message update automatically
   - Editor remains open after toggling
 
-- **`Ctrl+Delete`** / **`Cmd+Delete`**: Delete the current To-Do
+- `Ctrl+Delete` / `Cmd+Delete`: Delete the current To-Do
+
   - Shows a confirmation dialog before deleting
   - Closes the editor after deletion
 
@@ -265,7 +317,7 @@ These shortcuts only work when a To-Do is open in the editor:
 
 These shortcuts work from anywhere in VS Code:
 
-- **`Ctrl+Alt+N`** / **`Control+Cmd+N`**: Create a new To-Do
+- `Ctrl+Alt+N` / `Control+Cmd+N`: Create a new To-Do
   - Opens the To-Do editor with a blank form
   - Works from the sidebar, editor, or any view
 
@@ -274,6 +326,7 @@ These shortcuts work from anywhere in VS Code:
 To customize or change any keyboard shortcut:
 
 1. Open Keyboard Shortcuts UI:
+
    - Press `Ctrl+K Ctrl+S` (Windows/Linux) or `Cmd+K Cmd+S` (Mac)
    - Or go to `File` → `Preferences` → `Keyboard Shortcuts`
 
@@ -284,6 +337,7 @@ To customize or change any keyboard shortcut:
 4. To remove a shortcut, right-click and select "Remove Keybinding"
 
 **Available Commands for Customization:**
+
 - `Workspace To-do's: Save To-Do` - Save action in editor
 - `Workspace To-do's: Mark To-Do as Complete` - Toggle completion in editor
 - `Workspace To-do's: Delete To-Do` - Delete action in editor
@@ -305,6 +359,10 @@ All commands are available via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+
 - `Workspace To-do's: Add File to To-Do - Create new` - Create todo with file (Explorer context)
 - `Workspace To-do's: Add Text to To-Do - Existing` - Add text to existing todo (Editor context)
 - `Workspace To-do's: Add Text to To-Do - Create new` - Create todo with text (Editor context)
+- `Trello: Set Credentials` - Store Trello API key + token for this workspace
+- `Trello: Clear Credentials` - Clear Trello credentials for this workspace
+- `Trello: Sync Now` - Run Trello sync immediately
+- `Trello: Prune Missing Cards` - Remove local Trello items whose cards no longer exist
 
 ## Configuration
 
@@ -317,6 +375,7 @@ Directory path (relative to workspace root) where `todos.json` file will be save
 **Default:** `.vscode`
 
 **Example:**
+
 ```json
 {
   "workspaceTodos.todosDirectory": ".vscode"
@@ -324,6 +383,7 @@ Directory path (relative to workspace root) where `todos.json` file will be save
 ```
 
 Or to store todos in a different location:
+
 ```json
 {
   "workspaceTodos.todosDirectory": "docs"
@@ -339,6 +399,7 @@ Directory path (relative to workspace root) where `todos.md` file will be export
 **Default:** `.vscode`
 
 **Example:**
+
 ```json
 {
   "workspaceTodos.markdownExportPath": ".vscode"
@@ -346,6 +407,7 @@ Directory path (relative to workspace root) where `todos.md` file will be export
 ```
 
 Or to export to a different location:
+
 ```json
 {
   "workspaceTodos.markdownExportPath": "exports"
@@ -361,6 +423,7 @@ Default status to apply to newly created To-Do's when no status is explicitly se
 **Default:** `""` (empty - no default status)
 
 **Example:**
+
 ```json
 {
   "workspaceTodos.defaultStatus": "backlog"
@@ -373,11 +436,39 @@ This will automatically assign the `status:backlog` label to any new To-Do that 
 
 Leave empty to keep the current behavior where new To-Do's have no status by default.
 
+### Trello Settings
+
+Enable and configure Trello sync per workspace. Credentials are stored per workspace via **Trello: Set Credentials**.
+
+```json
+{
+  "workspaceTodos.trello.enabled": true,
+  "workspaceTodos.trello.board": "https://trello.com/b/BOARD_ID/board-name",
+  "workspaceTodos.trello.listMapping": {
+    "To-Do": "planned",
+    "Doing": "in-progress",
+    "Done": "done"
+  },
+  "workspaceTodos.trello.assignedUsername": "your-username",
+  "workspaceTodos.trello.assignedOnly": true,
+  "workspaceTodos.trello.syncIntervalMinutes": 0,
+  "workspaceTodos.trello.syncLocalTodos": false
+}
+```
+
+**Notes:**
+
+- Use your **Trello username** (not email).
+- List mappings match **exact list names** or list IDs.
+- `assignedOnly` hides cards not assigned to your username.
+- `syncLocalTodos` controls whether local-only todos create Trello cards.
+
 ### `workspaceTodos.labels`
 
 Comprehensive label system configuration for organizing todos with categories and values.
 
 **Structure:**
+
 ```json
 {
   "workspaceTodos.labels": {
@@ -401,12 +492,14 @@ Comprehensive label system configuration for organizing todos with categories an
 ```
 
 **Properties:**
+
 - `categories`: Default category definitions with values
 - `hiddenCategories`: Array of category names to hide from UI (e.g., `["scope"]`)
 - `hiddenLabels`: Array of specific labels to hide (format: `"category:value"`, e.g., `["priority:trivial"]`)
 - `custom`: Custom category definitions (same structure as categories)
 
 **Example - Hide a Category:**
+
 ```json
 {
   "workspaceTodos.labels": {
@@ -416,6 +509,7 @@ Comprehensive label system configuration for organizing todos with categories an
 ```
 
 **Example - Hide Specific Labels:**
+
 ```json
 {
   "workspaceTodos.labels": {
@@ -427,25 +521,28 @@ Comprehensive label system configuration for organizing todos with categories an
 ### How to Configure
 
 1. Open VS Code Settings:
+
    - Press `Ctrl+,` (Windows/Linux) or `Cmd+,` (macOS), or
    - Go to `File` → `Preferences` → `Settings` (Windows/Linux) or `Code` → `Preferences` → `Settings` (macOS)
 
 2. Search for "Workspace To-do's" in the settings search bar
 
 3. Or edit `settings.json` directly:
+
    - Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
    - Select "Preferences: Open User Settings (JSON)" or "Preferences: Open Workspace Settings (JSON)"
    - Add the configuration options as shown above
 
 ## Data Storage
 
-Todos are stored in `todos.json` in your workspace. By default, this file is located at `.vscode/todos.json` in your workspace root. You can customize this location using the [`workspaceTodos.todosDirectory`](#configuration) setting.
+Todos are stored in `todos.json` in your workspace. By default, this file is located at `.vscode/todos.json` in your workspace root. You can customize this location using the `workspaceTodos.todosDirectory` setting.
 
 **Default File Location:** `.vscode/todos.json`
 
 The file is created automatically when you create your first todo.
 
 **File Format:**
+
 ```json
 {
   "todos": [
@@ -469,7 +566,7 @@ The file is created automatically when you create your first todo.
 }
 ```
 
-**Note:** The default `.vscode` folder is typically excluded from version control, so your todos remain local to your workspace. If you want to share todos with your team, you can commit the `todos.json` file to your repository. You can also configure a custom location using the [`workspaceTodos.todosDirectory`](#configuration) setting if you prefer a different location.
+**Note:** The default `.vscode` folder is typically excluded from version control, so your todos remain local to your workspace. If you want to share todos with your team, you can commit the `todos.json` file to your repository. You can also configure a custom location using the `workspaceTodos.todosDirectory` setting if you prefer a different location.
 
 ## Requirements
 
@@ -482,6 +579,7 @@ The file is created automatically when you create your first todo.
 **Problem**: The sidebar shows "No To-Dos yet" but you know todos exist.
 
 **Solutions**:
+
 - Click the refresh button (circular arrow icon) in the sidebar
 - Check that you have a workspace folder open (not just files)
 - Verify that `.vscode/todos.json` exists and contains valid JSON
@@ -492,6 +590,7 @@ The file is created automatically when you create your first todo.
 **Problem**: Error when trying to create a todo.
 
 **Solutions**:
+
 - Ensure you have a workspace folder open (not just individual files)
 - Check that you have write permissions in the workspace directory
 - Verify that `.vscode` directory can be created (check permissions)
@@ -501,6 +600,7 @@ The file is created automatically when you create your first todo.
 **Problem**: Clicking on a file in the todo editor doesn't open it.
 
 **Solutions**:
+
 - Verify the file path is correct and relative to the workspace root
 - Check that the file still exists at that location
 - Ensure the workspace folder hasn't changed
@@ -510,6 +610,7 @@ The file is created automatically when you create your first todo.
 **Problem**: The notes editor shows a plain textarea instead of Monaco editor.
 
 **Solutions**:
+
 - This is a fallback behavior - the extension will still work with the textarea
 - Try reloading the VS Code window (`Ctrl+R` / `Cmd+R`)
 - Check that `node_modules/monaco-editor` exists (run `pnpm install` if needed)
@@ -519,6 +620,7 @@ The file is created automatically when you create your first todo.
 **Problem**: Right-click context menu options are missing.
 
 **Solutions**:
+
 - Reload the VS Code window (`Ctrl+R` / `Cmd+R` or `Ctrl+Shift+P` → "Developer: Reload Window")
 - Verify the extension is installed and enabled
 - For file context menu: Right-click on a file in Explorer (not a folder)
@@ -537,6 +639,7 @@ No, todos are stored locally in your workspace. If you use VS Code Settings Sync
 ### Can I export my todos?
 
 Yes! You can export your todos to Markdown format:
+
 - Click the "Export To Markdown" button in the sidebar title bar, or
 - Use the Command Palette: "Workspace To-do's: Export To Markdown"
 - Export creates `todos.md` with status-based sections and preserves your sort order
@@ -580,6 +683,7 @@ Contributions are welcome! Here's how you can help:
 ### Reporting Bugs
 
 Please use the [GitHub Issues](https://github.com/tarikkavaz/workspace-todos/issues) page to report bugs. Include:
+
 - VS Code version
 - Operating system
 - Extension version

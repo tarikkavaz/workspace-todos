@@ -2,7 +2,7 @@
   "name": "workspace-todos",
   "displayName": "Workspace To-do's",
   "description": "A VSCode extension to manage Workspace To-Do's",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "publisher": "tarikkavaz",
   "engines": {
     "vscode": "^1.60.0"
@@ -29,7 +29,11 @@
     "onCommand:workspaceTodos.createTodoWithFile",
     "onCommand:workspaceTodos.addTextToTodo",
     "onCommand:workspaceTodos.createTodoWithText",
-    "onCommand:workspaceTodos.exportToMarkdown"
+    "onCommand:workspaceTodos.exportToMarkdown",
+    "onCommand:workspaceTodos.trello.setCredentials",
+    "onCommand:workspaceTodos.trello.clearCredentials",
+    "onCommand:workspaceTodos.trello.syncNow",
+    "onCommand:workspaceTodos.trello.pruneMissing"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -54,6 +58,12 @@
           "id": "workspaceTodosCompletedView",
           "name": "Completed",
           "icon": "media/complete-icon.svg",
+          "when": "true"
+        },
+        {
+          "id": "workspaceTodosTrelloView",
+          "name": "Trello",
+          "icon": "media/trello-icon-light.svg",
           "when": "true"
         }
       ]
@@ -138,6 +148,26 @@
         "command": "workspaceTodos.clearFilters",
         "title": "Clear Filters",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "workspaceTodos.trello.setCredentials",
+        "title": "Trello: Set Credentials",
+        "icon": "$(key)"
+      },
+      {
+        "command": "workspaceTodos.trello.clearCredentials",
+        "title": "Trello: Clear Credentials",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "workspaceTodos.trello.syncNow",
+        "title": "Trello: Sync Now",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "workspaceTodos.trello.pruneMissing",
+        "title": "Trello: Prune Missing Cards",
+        "icon": "$(trash)"
       }
     ],
     "configuration": {
@@ -227,6 +257,60 @@
             "hiddenLabels": [],
             "custom": {}
           }
+        },
+        "workspaceTodos.trello.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Enable Trello sync for this workspace."
+        },
+        "workspaceTodos.trello.board": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Trello board ID or URL to sync with."
+        },
+        "workspaceTodos.trello.listMapping": {
+          "type": "object",
+          "default": {},
+          "scope": "resource",
+          "description": "Map Trello list IDs or names to status values (e.g., {\"Doing\":\"in-progress\"}).",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "workspaceTodos.trello.labelMapping": {
+          "type": "object",
+          "default": {},
+          "scope": "resource",
+          "description": "Map Trello label names to todo labels (e.g., {\"bug\":\"type:bug\"}).",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "workspaceTodos.trello.assignedUsername": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Trello username for assigned-only filtering."
+        },
+        "workspaceTodos.trello.assignedOnly": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "description": "Show only cards assigned to the configured Trello username."
+        },
+        "workspaceTodos.trello.syncIntervalMinutes": {
+          "type": "number",
+          "default": 0,
+          "scope": "resource",
+          "description": "Background Trello sync interval in minutes (0 disables)."
+        },
+        "workspaceTodos.trello.syncLocalTodos": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "Create Trello cards for local-only todos during sync."
         }
       }
     },
@@ -235,6 +319,16 @@
         {
           "command": "workspaceTodos.addTodo",
           "when": "view == workspaceTodosView",
+          "group": "navigation"
+        },
+        {
+          "command": "workspaceTodos.trello.syncNow",
+          "when": "view == workspaceTodosTrelloView",
+          "group": "navigation"
+        },
+        {
+          "command": "workspaceTodos.trello.pruneMissing",
+          "when": "view == workspaceTodosTrelloView",
           "group": "navigation"
         },
         {

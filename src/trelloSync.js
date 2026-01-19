@@ -215,34 +215,85 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
             }
             const mappingWarningKey = mappingWarnings.join('|');
             if (mappingWarnings.length > 0 && mappingWarningKey !== lastMappingWarningKey) {
+                const settings = vscode.workspace.getConfiguration('workspaceTodos');
+                let updatedStatusValues = null;
+                let autoMappedLists = false;
                 if (uniqueUnknown.length > 0) {
                     const selection = await vscode.window.showWarningMessage(
-                        `Trello mapping uses unknown status values: ${uniqueUnknown.join(', ')}. Add them to status labels?`,
+                        `Trello mapping warning: Unknown status values in listMapping: ${uniqueUnknown.join(', ')}. Add them to status labels?`,
                         'Add Status Labels',
                         'Dismiss'
                     );
                     if (selection === 'Add Status Labels') {
-                        const settings = vscode.workspace.getConfiguration('workspaceTodos');
                         const labelConfig = settings.get('labels', {});
                         const categories = labelConfig.categories || {};
                         const statusCategory = categories.status || {};
                         const existingValues = statusCategory.values || [];
-                        const mergedValues = [...new Set([...existingValues, ...uniqueUnknown])];
+                        updatedStatusValues = [...new Set([...existingValues, ...uniqueUnknown])];
                         const updatedLabels = {
                             ...labelConfig,
                             categories: {
                                 ...categories,
                                 status: {
                                     ...statusCategory,
-                                    values: mergedValues
+                                    values: updatedStatusValues
                                 }
                             }
                         };
                         await settings.update('labels', updatedLabels, vscode.ConfigurationTarget.Workspace);
                     }
                 }
-                vscode.window.showWarningMessage(`Trello mapping warning: ${mappingWarnings.join(' · ')}`);
-                outputChannel.appendLine(`[Trello] Mapping warning: ${mappingWarnings.join(' · ')}`);
+
+                if (unmappedLists.length > 0) {
+                    const selection = await vscode.window.showWarningMessage(
+                        `Trello mapping warning: Unmapped lists: ${unmappedLists.map(list => list.name).join(', ')}. Auto-map list names to status labels?`,
+                        'Auto-Map Lists',
+                        'Dismiss'
+                    );
+                    if (selection === 'Auto-Map Lists') {
+                        const currentMapping = settings.get('trello.listMapping', {});
+                        const additions = {};
+                        const newStatusValues = [];
+                        unmappedLists.forEach(list => {
+                            if (!currentMapping[list.name]) {
+                                const normalized = normalizeKey(list.name).replace(/\s+/g, '-');
+                                additions[list.name] = normalized;
+                                newStatusValues.push(normalized);
+                            }
+                        });
+                        if (Object.keys(additions).length > 0) {
+                            await settings.update(
+                                'trello.listMapping',
+                                { ...currentMapping, ...additions },
+                                vscode.ConfigurationTarget.Workspace
+                            );
+                        }
+                        if (newStatusValues.length > 0) {
+                            const labelConfig = settings.get('labels', {});
+                            const categories = labelConfig.categories || {};
+                            const statusCategory = categories.status || {};
+                            const existingValues = updatedStatusValues || statusCategory.values || [];
+                            const mergedValues = [...new Set([...existingValues, ...newStatusValues])];
+                            const updatedLabels = {
+                                ...labelConfig,
+                                categories: {
+                                    ...categories,
+                                    status: {
+                                        ...statusCategory,
+                                        values: mergedValues
+                                    }
+                                }
+                            };
+                            await settings.update('labels', updatedLabels, vscode.ConfigurationTarget.Workspace);
+                        }
+                        autoMappedLists = true;
+                    }
+                }
+
+                if (!autoMappedLists) {
+                    vscode.window.showWarningMessage(`Trello mapping warning: ${mappingWarnings.join(' · ')}`);
+                    outputChannel.appendLine(`[Trello] Mapping warning: ${mappingWarnings.join(' · ')}`);
+                }
                 lastMappingWarningKey = mappingWarningKey;
             }
             const memberIdToUsername = {};

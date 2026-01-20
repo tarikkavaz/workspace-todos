@@ -1103,8 +1103,6 @@ class TrelloTodosTreeDataProvider {
             if (!element) {
                 const rootItems = [];
 
-                rootItems.push(new QuickActionsTreeItem());
-
                 if (credentialsMissing) {
                     rootItems.push(new InfoTreeItem(
                         'Trello credentials missing. Set credentials to sync.',
@@ -1236,40 +1234,12 @@ class TrelloTodosTreeDataProvider {
             } else if (element instanceof SectionTreeItem) {
                 const todos = this._getTodosForSection(element.sectionType);
                 return todos.map(todo => new TodoTreeItem(todo.title || todo.notes || 'Untitled', todo, false));
-            } else if (element instanceof QuickActionsTreeItem) {
-                return [
-                    new ActionTreeItem('Sync Now', 'workspaceTodos.trello.syncNow', 'sync'),
-                    new ActionTreeItem('Open Board', 'workspaceTodos.trello.openBoard', 'link-external'),
-                    new ActionTreeItem('Set Credentials', 'workspaceTodos.trello.setCredentials', 'key'),
-                    new ActionTreeItem('Prune Missing Cards', 'workspaceTodos.trello.pruneMissing', 'trash')
-                ];
             }
 
             return [];
         } catch (error) {
             return [new TodoTreeItem('Error loading Trello cards', null, true)];
         }
-    }
-}
-
-class QuickActionsTreeItem extends vscode.TreeItem {
-    constructor() {
-        super('Quick Actions', vscode.TreeItemCollapsibleState.Collapsed);
-        this.contextValue = 'trelloQuickActions';
-        this.iconPath = new vscode.ThemeIcon('run-all');
-    }
-}
-
-class ActionTreeItem extends vscode.TreeItem {
-    constructor(label, commandId, icon, args = []) {
-        super(label, vscode.TreeItemCollapsibleState.None);
-        this.contextValue = 'trelloAction';
-        this.iconPath = new vscode.ThemeIcon(icon);
-        this.command = {
-            command: commandId,
-            title: label,
-            arguments: args
-        };
     }
 }
 

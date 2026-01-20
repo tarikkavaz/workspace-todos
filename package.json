@@ -338,6 +338,11 @@
           "group": "navigation"
         },
         {
+          "command": "workspaceTodos.trello.setCredentials",
+          "when": "view == workspaceTodosTrelloView",
+          "group": "navigation"
+        },
+        {
           "command": "workspaceTodos.trello.pruneMissing",
           "when": "view == workspaceTodosTrelloView",
           "group": "navigation"

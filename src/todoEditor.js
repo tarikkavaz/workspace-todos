@@ -933,13 +933,13 @@ function getTodoEditorWebviewContent(webview, extensionUri, todo, initialFiles =
         .trello-icon-dark {
             display: none;
         }
-        @media (prefers-color-scheme: dark) {
-            .trello-icon-light {
-                display: none;
-            }
-            .trello-icon-dark {
-                display: inline-block;
-            }
+        body.vscode-dark .trello-icon-light,
+        body.vscode-high-contrast .trello-icon-light {
+            display: none;
+        }
+        body.vscode-dark .trello-icon-dark,
+        body.vscode-high-contrast .trello-icon-dark {
+            display: inline-block;
         }
         .trello-link {
             color: var(--vscode-textLink-foreground);

@@ -4,7 +4,7 @@ class TrelloClient {
     constructor({ apiKey, token, apiBaseUrl }) {
         this.apiKey = apiKey;
         this.token = token;
-        this.baseUrl = apiBaseUrl || 'https://api.trello.com/1/';
+        this.baseUrl = apiBaseUrl ? apiBaseUrl.replace(/\/?$/, '/') : 'https://api.trello.com/1/';
     }
 
     async requestJson(method, path, query = {}, body = null) {

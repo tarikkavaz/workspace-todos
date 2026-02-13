@@ -1,10 +1,10 @@
 const https = require('https');
 
 class TrelloClient {
-    constructor({ apiKey, token }) {
+    constructor({ apiKey, token, apiBaseUrl }) {
         this.apiKey = apiKey;
         this.token = token;
-        this.baseUrl = 'https://api.trello.com/1/';
+        this.baseUrl = apiBaseUrl || 'https://api.trello.com/1/';
     }
 
     async requestJson(method, path, query = {}, body = null) {

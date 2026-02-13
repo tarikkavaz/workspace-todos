@@ -190,7 +190,7 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
         outputChannel.appendLine(`[Trello] Sync started (${reason}).`);
 
         try {
-            const client = new TrelloClient({ apiKey, token, apiBaseUrl: trelloConfig.apiBaseUrl });
+            const client = new TrelloClient({ apiKey, token, apiBaseUrl: config.apiBaseUrl });
             const [lists, cards, members, labels] = await Promise.all([
                 client.getBoardLists(boardId),
                 client.getBoardCards(boardId),
@@ -583,7 +583,7 @@ function createTrelloSyncManager(context, outputChannel, refreshTree) {
         outputChannel.appendLine(`[Trello] Prune started (${reason}).`);
 
         try {
-            const client = new TrelloClient({ apiKey, token, apiBaseUrl: trelloConfig.apiBaseUrl });
+            const client = new TrelloClient({ apiKey, token, apiBaseUrl: config.apiBaseUrl });
             const cards = await client.getBoardCards(boardId);
             const cardIds = new Set(cards.map(card => card.id));
 
